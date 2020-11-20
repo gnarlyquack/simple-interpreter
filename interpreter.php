@@ -2,6 +2,7 @@
 
 namespace interpreter;
 
+
 main();
 
 
@@ -20,6 +21,12 @@ final class Lexer
         $this->input = $input;
         $this->len = \strlen($input);
         $this->pos = 0;
+    }
+
+
+    public function has_token(): bool
+    {
+        return $this->pos < $this->len;
     }
 
     /**
@@ -61,10 +68,17 @@ final class Lexer
         {
             return new Token(TokenType::TOKEN_PLUS, $char);
         }
-
         if ('-' === $char)
         {
             return new Token(TokenType::TOKEN_MINUS, $char);
+        }
+        if ('*' === $char)
+        {
+            return new Token(TokenType::TOKEN_MUL, $char);
+        }
+        if ('/' === $char)
+        {
+            return new Token(TokenType::TOKEN_DIV, $char);
         }
 
         parse_error("Unknown token: {$char}");
@@ -91,12 +105,16 @@ final class TokenType
     const TOKEN_NUMBER = 1;
     const TOKEN_PLUS = 2;
     const TOKEN_MINUS = 3;
+    const TOKEN_DIV = 4;
+    const TOKEN_MUL = 5;
 
     const NAME = [
         self::TOKEN_EOF => 'EOF',
         self::TOKEN_NUMBER => 'NUMBER',
         self::TOKEN_PLUS => 'PLUS',
         self::TOKEN_MINUS => 'MINUS',
+        self::TOKEN_DIV => 'DIV',
+        self::TOKEN_MUL => 'MUL',
     ];
 
     /*
@@ -170,22 +188,42 @@ function main(): void
 }
 
 
-function parse_expression(Lexer $lexer): int
+/**
+ * @return mixed
+ */
+function parse_expression(Lexer $lexer)
 {
-    $left = $lexer->eat_token(TokenType::TOKEN_NUMBER);
-    $op = $lexer->eat_token(TokenType::TOKEN_PLUS, TokenType::TOKEN_MINUS);
-    $right = $lexer->eat_token(TokenType::TOKEN_NUMBER);
+    $result = $lexer->eat_token(TokenType::TOKEN_NUMBER)->value();
 
-    if (TokenType::TOKEN_PLUS === $op->type())
+    while ($lexer->has_token())
     {
-        return $left->value() + $right->value();
-    }
-    if (TokenType::TOKEN_MINUS === $op->type())
-    {
-        return $left->value() - $right->value();
+        $op = $lexer->eat_token(TokenType::TOKEN_PLUS, TokenType::TOKEN_MINUS,
+                                TokenType::TOKEN_MUL, TokenType::TOKEN_DIV);
+        $right = $lexer->eat_token(TokenType::TOKEN_NUMBER)->value();
+
+        if (TokenType::TOKEN_PLUS === $op->type())
+        {
+            $result += $right;
+        }
+        elseif (TokenType::TOKEN_MINUS === $op->type())
+        {
+            $result -= $right;
+        }
+        elseif (TokenType::TOKEN_DIV === $op->type())
+        {
+            $result /= $right;
+        }
+        elseif (TokenType::TOKEN_MUL === $op->type())
+        {
+            $result *= $right;
+        }
+        else
+        {
+            invalid_code_path("Unexpected operation {$op}");
+        }
     }
 
-    invalid_code_path("Unexpected operation {$op}");
+    return $result;
 }
 
 
