@@ -53,6 +53,39 @@ final class BinaryOperation extends Expression
 }
 
 
+final class UnaryOperation extends Expression
+{
+    private Token $operation;
+    private Expression $expression;
+
+    public function __construct(Token $operation, Expression $expression)
+    {
+        \assert(
+            \in_array(
+                $operation->type(),
+                [TokenType::TOKEN_PLUS, TokenType::TOKEN_MINUS]
+            )
+        );
+        $this->operation = $operation;
+        $this->expression = $expression;
+    }
+
+    /**
+     * @return TokenType::TOKEN_*
+     */
+    public function operation(): int
+    {
+        return $this->operation->type();
+    }
+
+
+    public function expression(): Expression
+    {
+        return $this->expression;
+    }
+}
+
+
 
 final class Number extends Expression
 {
@@ -105,15 +138,21 @@ function parse_term(Lexer $lexer): Expression
 
 function parse_factor(Lexer $lexer): Expression
 {
-    $result = $lexer->eat_token(TokenType::TOKEN_NUMBER, TokenType::TOKEN_LPARENS);
+    $result = $lexer->eat_token(
+        TokenType::TOKEN_NUMBER, TokenType::TOKEN_LPARENS,
+        TokenType::TOKEN_PLUS, TokenType::TOKEN_MINUS);
     if (TokenType::TOKEN_NUMBER === $result->type())
     {
         return new Number($result);
     }
-    else
+    elseif (TokenType::TOKEN_LPARENS === $result->type())
     {
         $result = parse_expression($lexer);
         $lexer->eat_token(TokenType::TOKEN_RPARENS);
         return $result;
+    }
+    else
+    {
+        return new UnaryOperation($result, parse_factor($lexer));
     }
 }

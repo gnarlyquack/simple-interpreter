@@ -13,6 +13,7 @@ function interpret(Ast $program)
         $operation = $program->operation();
         $left = interpret($program->left());
         $right = interpret($program->right());
+
         if (TokenType::TOKEN_PLUS === $operation)
         {
             return $left + $right;
@@ -30,7 +31,26 @@ function interpret(Ast $program)
             return $left * $right;
         }
 
+        $operation = TokenType::name($operation);
         throw new InvalidCodePath("Unexpected binary operation: {$operation}");
+    }
+
+    if ($program instanceof UnaryOperation)
+    {
+        $operation = $program->operation();
+        $value = interpret($program->expression());
+
+        if (TokenType::TOKEN_PLUS === $operation)
+        {
+            return $value;
+        }
+        if (TokenType::TOKEN_MINUS === $operation)
+        {
+            return -$value;
+        }
+
+        $operation = TokenType::name($operation);
+        throw new InvalidCodePath("Unexpected unary operation: {$operation}");
     }
 
     if ($program instanceof Number)
