@@ -1,6 +1,6 @@
 .PHONY: run
 run:
-	php interpreter.php
+	./interpret
 
 
 .PHONY: analyse

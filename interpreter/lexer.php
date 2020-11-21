@@ -3,13 +3,6 @@
 namespace interpreter;
 
 
-main();
-
-
-final class InvalidCodePath extends \Exception {}
-final class ParseError extends \Exception {}
-
-
 final class Lexer
 {
     private string $input;
@@ -193,99 +186,5 @@ final class Token
             'Token(%s, %s)',
             TokenType::name($this->type), \var_export($this->value, true)
         );
-    }
-}
-
-
-
-function main(): void
-{
-    while (true)
-    {
-        $input = \readline('calc> ');
-        if ($input)
-        {
-            $result = parse_expression(new Lexer($input));
-            echo "{$result}\n";
-        }
-    }
-}
-
-
-/**
- * @return int|float
- */
-function parse_expression(Lexer $lexer)
-{
-    $result = parse_term($lexer);
-
-    while ($lexer->peek_token(TokenType::TOKEN_PLUS, TokenType::TOKEN_MINUS))
-    {
-        $op = $lexer->eat_token();
-        $right = parse_term($lexer);
-
-        if (TokenType::TOKEN_PLUS === $op->type())
-        {
-            $result += $right;
-        }
-        elseif (TokenType::TOKEN_MINUS === $op->type())
-        {
-            $result -= $right;
-        }
-        else
-        {
-            throw new InvalidCodePath("Unexpected token {$op}");
-        }
-    }
-
-    return $result;
-}
-
-
-/**
- * @return int|float
- */
-function parse_term(Lexer $lexer)
-{
-    $result = parse_factor($lexer);
-
-    while ($lexer->peek_token(TokenType::TOKEN_MUL, TokenType::TOKEN_DIV))
-    {
-        $op = $lexer->eat_token();
-        $right = parse_factor($lexer);
-
-        if (TokenType::TOKEN_DIV === $op->type())
-        {
-            $result /= $right;
-        }
-        elseif (TokenType::TOKEN_MUL === $op->type())
-        {
-            $result *= $right;
-        }
-        else
-        {
-            throw new InvalidCodePath("Unexpected token {$op}");
-        }
-    }
-
-    return $result;
-}
-
-
-/**
- * @return int|float
- */
-function parse_factor(Lexer $lexer)
-{
-    $result = $lexer->eat_token(TokenType::TOKEN_NUMBER, TokenType::TOKEN_LPARENS);
-    if (TokenType::TOKEN_NUMBER === $result->type())
-    {
-        return $result->value();
-    }
-    else
-    {
-        $result = parse_expression($lexer);
-        $lexer->eat_token(TokenType::TOKEN_RPARENS);
-        return $result;
     }
 }
