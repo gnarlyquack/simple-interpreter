@@ -15,12 +15,14 @@ final class Lexer
     private string $input;
     private int $len;
     private int $pos;
+    private Token $current_token;
 
     public function __construct(string $input)
     {
         $this->input = $input;
         $this->len = \strlen($input);
         $this->pos = 0;
+        $this->current_token = $this->next_token();
     }
 
 
@@ -34,16 +36,26 @@ final class Lexer
      */
     public function eat_token(int ...$types): Token
     {
-        $result = $this->next_token();
-        if (\in_array($result->type(), $types))
+        $result = $this->current_token;
+        if (!$types || \in_array($result->type(), $types))
         {
+            $this->current_token = $this->next_token();
             return $result;
         }
 
         $expected = \implode(
             ' or ',
             \array_map([TokenType::class, 'name'], $types));
-        parse_error("Expected token {$expected} but got token {$result})");
+        throw new ParseError("Expected token {$expected} but got token {$result}");
+    }
+
+    /**
+     * @param TokenType::TOKEN_*... $types
+     */
+    public function peek_token(int ...$types): ?Token
+    {
+        $result = $this->current_token;
+        return \in_array($result->type(), $types) ? $result : null;
     }
 
 
@@ -80,8 +92,16 @@ final class Lexer
         {
             return new Token(TokenType::TOKEN_DIV, $char);
         }
+        if ('(' === $char)
+        {
+            return new Token(TokenType::TOKEN_LPARENS, $char);
+        }
+        if (')' === $char)
+        {
+            return new Token(TokenType::TOKEN_RPARENS, $char);
+        }
 
-        parse_error("Unknown token: {$char}");
+        throw new ParseError("Unknown token: {$char}");
     }
 
     /**
@@ -107,6 +127,8 @@ final class TokenType
     const TOKEN_MINUS = 3;
     const TOKEN_DIV = 4;
     const TOKEN_MUL = 5;
+    const TOKEN_LPARENS = 6;
+    const TOKEN_RPARENS = 7;
 
     const NAME = [
         self::TOKEN_EOF => 'EOF',
@@ -115,6 +137,8 @@ final class TokenType
         self::TOKEN_MINUS => 'MINUS',
         self::TOKEN_DIV => 'DIV',
         self::TOKEN_MUL => 'MUL',
+        self::TOKEN_LPARENS => 'LPARENS',
+        self::TOKEN_RPARENS => 'RPARENS',
     ];
 
     /*
@@ -189,17 +213,16 @@ function main(): void
 
 
 /**
- * @return mixed
+ * @return int|float
  */
 function parse_expression(Lexer $lexer)
 {
-    $result = $lexer->eat_token(TokenType::TOKEN_NUMBER)->value();
+    $result = parse_term($lexer);
 
-    while ($lexer->has_token())
+    while ($lexer->peek_token(TokenType::TOKEN_PLUS, TokenType::TOKEN_MINUS))
     {
-        $op = $lexer->eat_token(TokenType::TOKEN_PLUS, TokenType::TOKEN_MINUS,
-                                TokenType::TOKEN_MUL, TokenType::TOKEN_DIV);
-        $right = $lexer->eat_token(TokenType::TOKEN_NUMBER)->value();
+        $op = $lexer->eat_token();
+        $right = parse_term($lexer);
 
         if (TokenType::TOKEN_PLUS === $op->type())
         {
@@ -209,7 +232,29 @@ function parse_expression(Lexer $lexer)
         {
             $result -= $right;
         }
-        elseif (TokenType::TOKEN_DIV === $op->type())
+        else
+        {
+            throw new InvalidCodePath("Unexpected token {$op}");
+        }
+    }
+
+    return $result;
+}
+
+
+/**
+ * @return int|float
+ */
+function parse_term(Lexer $lexer)
+{
+    $result = parse_factor($lexer);
+
+    while ($lexer->peek_token(TokenType::TOKEN_MUL, TokenType::TOKEN_DIV))
+    {
+        $op = $lexer->eat_token();
+        $right = parse_factor($lexer);
+
+        if (TokenType::TOKEN_DIV === $op->type())
         {
             $result /= $right;
         }
@@ -219,7 +264,7 @@ function parse_expression(Lexer $lexer)
         }
         else
         {
-            invalid_code_path("Unexpected operation {$op}");
+            throw new InvalidCodePath("Unexpected token {$op}");
         }
     }
 
@@ -228,18 +273,19 @@ function parse_expression(Lexer $lexer)
 
 
 /**
- * @return never
+ * @return int|float
  */
-function parse_error(string $message): void
+function parse_factor(Lexer $lexer)
 {
-    throw new ParseError($message);
-}
-
-
-/**
- * @return never
- */
-function invalid_code_path(string $message=''): void
-{
-    throw new InvalidCodePath($message);
+    $result = $lexer->eat_token(TokenType::TOKEN_NUMBER, TokenType::TOKEN_LPARENS);
+    if (TokenType::TOKEN_NUMBER === $result->type())
+    {
+        return $result->value();
+    }
+    else
+    {
+        $result = parse_expression($lexer);
+        $lexer->eat_token(TokenType::TOKEN_RPARENS);
+        return $result;
+    }
 }
