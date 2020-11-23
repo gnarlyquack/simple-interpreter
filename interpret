@@ -2,4 +2,4 @@
 <?php declare(strict_types=1);
 
 require 'interpreter/main.php';
-interpreter\main();
+interpreter\main($argc, $argv);

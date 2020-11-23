@@ -9,9 +9,17 @@ final class Lexer
     private int $len;
     private int $pos;
     private Token $current_token;
+    /** @var Token[] */
+    private array $keywords;
 
     public function __construct(string $input)
     {
+        $this->keywords = [
+            'BEGIN' => new Token(TokenType::TOKEN_BEGIN, 'BEGIN'),
+            'END' => new Token(TokenType::TOKEN_END, 'END'),
+            'DIV' => new Token(TokenType::TOKEN_INTDIV, 'DIV'),
+        ];
+
         $this->input = $input;
         $this->len = \strlen($input);
         $this->pos = 0;
@@ -69,6 +77,17 @@ final class Lexer
             return new Token(TokenType::TOKEN_NUMBER, (int)$char);
         }
 
+        if (\preg_match('~^[_a-zA-Z]$~', $char))
+        {
+            $char .= $this->eat_pattern('~\\G[_a-zA-Z0-9]+~');
+            $keyword = \strtoupper($char);
+            if (isset($this->keywords[$keyword]))
+            {
+                return $this->keywords[$keyword];
+            }
+            return new Token(TokenType::TOKEN_ID, \strtolower($char));
+        }
+
         if ('+' === $char)
         {
             return new Token(TokenType::TOKEN_PLUS, $char);
@@ -93,8 +112,44 @@ final class Lexer
         {
             return new Token(TokenType::TOKEN_RPARENS, $char);
         }
+        if ('.' === $char)
+        {
+            return new Token(TokenType::TOKEN_DOT, $char);
+        }
+        if (';' === $char)
+        {
+            return new Token(TokenType::TOKEN_SEMI, $char);
+        }
+        if (':' === $char)
+        {
+            if ('=' === $this->peek_char())
+            {
+                $char .= $this->eat_char();
+                return new Token(TokenType::TOKEN_ASSIGN, $char);
+            }
+        }
 
         throw new ParseError("Unknown token: {$char}");
+    }
+
+
+    private function peek_char(): string
+    {
+        if ($this->pos < $this->len)
+        {
+            return $this->input[$this->pos];
+        }
+        return '';
+    }
+
+
+    private function eat_char(): string
+    {
+        if ($this->pos < $this->len)
+        {
+            return $this->input[$this->pos++];
+        }
+        return '';
     }
 
     /**
@@ -106,6 +161,22 @@ final class Lexer
         while ($this->pos < $this->len && $predicate($this->input[$this->pos]))
         {
             $result .= $this->input[$this->pos++];
+        }
+        return $result;
+    }
+
+
+    private function eat_pattern(string $pattern): string
+    {
+        if ($this->pos < $this->len
+            && \preg_match($pattern, $this->input, $matches, 0, $this->pos))
+        {
+            $result = $matches[0];
+            $this->pos += \strlen($result);
+        }
+        else
+        {
+            $result = '';
         }
         return $result;
     }
@@ -122,6 +193,13 @@ final class TokenType
     const TOKEN_MUL = 5;
     const TOKEN_LPARENS = 6;
     const TOKEN_RPARENS = 7;
+    const TOKEN_DOT = 8;
+    const TOKEN_ASSIGN = 9;
+    const TOKEN_ID = 10;
+    const TOKEN_BEGIN = 11;
+    const TOKEN_END = 12;
+    const TOKEN_SEMI = 13;
+    const TOKEN_INTDIV = 14;
 
     const NAME = [
         self::TOKEN_EOF => 'EOF',
@@ -132,6 +210,13 @@ final class TokenType
         self::TOKEN_MUL => 'MUL',
         self::TOKEN_LPARENS => 'LPARENS',
         self::TOKEN_RPARENS => 'RPARENS',
+        self::TOKEN_DOT => 'DOT',
+        self::TOKEN_ASSIGN => 'ASSIGN',
+        self::TOKEN_ID => 'ID',
+        self::TOKEN_BEGIN => 'BEGIN',
+        self::TOKEN_END => 'END',
+        self::TOKEN_SEMI => 'SEMI',
+        self::TOKEN_INTDIV => 'INTDIV',
     ];
 
     /*
