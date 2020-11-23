@@ -26,7 +26,7 @@ function test_arithmetic_expressions(Context $c)
     foreach ($tests as [$expr, $expected])
     {
         $actual = [];
-        run_code("BEGIN a := {$expr} END.", $actual);
+        run_code("PROGRAM test; BEGIN a := {$expr} END.", $actual);
 
         $c->assert_identical($expected, $actual['a']);
     }
@@ -43,7 +43,7 @@ function test_invalid_syntax(Context $c)
         $c->assert_throws(
             ParseError::class,
             function() use ($statement, &$state) {
-                run_code("BEGIN a := {$statement} END.", $state);
+                run_code("PROGRAM test; BEGIN a := {$statement} END.", $state);
             }
         );
         $c->assert_identical([], $state, 'resulting state');
@@ -51,18 +51,24 @@ function test_invalid_syntax(Context $c)
 }
 
 
-function test_statements()
+function test_program()
 {
     $code = <<<'CODE'
-BEGIN
+PROGRAM TestProgram;
+VAR
+    number      : INTEGER;
+    a, b, c, x  : INTEGER;
+    y           : REAL;
+BEGIN {Test}
     BEGIN
         number := 2;
         a := number;
-        b := 10 * a + 10 * number / 4;
+        b := 10 * a + 10 * number DIV 4;
         c := a - - b
     END;
     x := 11;
-END.
+    y := 20 / 7 + 3.14
+END. {Test}
 CODE;
 
     $expected = [
@@ -71,6 +77,7 @@ CODE;
         'b' => 25,
         'c' => 27,
         'x' => 11,
+        'y' => 20 / 7 + 3.14,
     ];
 
     $actual = [];
@@ -83,6 +90,7 @@ CODE;
 function test_case_sensitivity()
 {
     $code = <<<'CODE'
+PROGRAM TestCaseSensitivity;
 BEGIN
 
     BEGIN

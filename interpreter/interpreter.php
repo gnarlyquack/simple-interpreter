@@ -5,92 +5,147 @@ namespace interpreter;
 
 /**
  * @param array<string, mixed> $state
+ */
+function interpret(Program $program, array &$state): void
+{
+    interpret_statement($program->statements(), $state);
+}
+
+
+/**
+ * @param array<string, mixed> $state
+ */
+function interpret_statement(Statement $statement, array &$state): void
+{
+    if ($statement instanceof Block)
+    {
+        foreach ($statement->declarations() as $declaration)
+        {
+            interpret_statement($declaration, $state);
+        }
+        interpret_statement($statement->statements(), $state);
+    }
+
+    elseif ($statement instanceof Declaration)
+    {
+        // do nothing, for now
+    }
+
+    elseif ($statement instanceof CompoundStatement)
+    {
+        foreach ($statement->statements() as $statement)
+        {
+            interpret_statement($statement, $state);
+        }
+    }
+
+    elseif ($statement instanceof Assignment)
+    {
+        $variable = $statement->variable();
+        $value = interpret_expression($statement->expression(), $state);
+        $state[$variable] = $value;
+    }
+    else
+    {
+        $syntax = \get_class($statement);
+        throw new InvalidCodePath("Unknown statement: {$syntax}");
+    }
+}
+
+
+/**
+ * @param array<string, mixed> $state
  * @return mixed
  */
-function interpret(Ast $program, array &$state)
+function interpret_expression(Expression $expression, array &$state)
 {
-    if ($program instanceof CompoundStatement)
+    if ($expression instanceof BinaryOperation)
     {
-        foreach ($program->statements() as $statement)
-        {
-            interpret($statement, $state);
-        }
-        return;
-    }
-
-    if ($program instanceof Assignment)
-    {
-        $variable = $program->variable();
-        $value = interpret($program->expression(), $state);
-        $state[$variable] = $value;
-        return;
-    }
-
-    if ($program instanceof BinaryOperation)
-    {
-        $operation = $program->operation();
-        $left = interpret($program->left(), $state);
-        $right = interpret($program->right(), $state);
+        $operation = $expression->operation();
+        $left = interpret_expression($expression->left(), $state);
+        $right = interpret_expression($expression->right(), $state);
 
         if (TokenType::TOKEN_PLUS === $operation)
         {
             return $left + $right;
         }
-        if (TokenType::TOKEN_MINUS === $operation)
+        elseif (TokenType::TOKEN_MINUS === $operation)
         {
             return $left - $right;
         }
-        if (TokenType::TOKEN_DIV === $operation)
+        elseif (TokenType::TOKEN_DIV === $operation)
         {
             return $left / $right;
         }
-        if (TokenType::TOKEN_MUL === $operation)
+        elseif (TokenType::TOKEN_MUL === $operation)
         {
             return $left * $right;
         }
-        if (TokenType::TOKEN_INTDIV === $operation)
+        elseif (TokenType::TOKEN_INTDIV === $operation)
         {
             return \intdiv($left, $right);
         }
-
-        $operation = TokenType::name($operation);
-        throw new InvalidCodePath("Unexpected binary operation: {$operation}");
+        else
+        {
+            throw new InvalidCodePath(
+                \sprintf(
+                    'Unexpected binary operation: %s',
+                    TokenType::name($operation)
+                )
+            );
+        }
     }
 
-    if ($program instanceof UnaryOperation)
+    elseif ($expression instanceof UnaryOperation)
     {
-        $operation = $program->operation();
-        $value = interpret($program->expression(), $state);
+        $operation = $expression->operation();
+        $value = interpret_expression($expression->expression(), $state);
 
         if (TokenType::TOKEN_PLUS === $operation)
         {
             return $value;
         }
-        if (TokenType::TOKEN_MINUS === $operation)
+        elseif (TokenType::TOKEN_MINUS === $operation)
         {
             return -$value;
         }
-
-        $operation = TokenType::name($operation);
-        throw new InvalidCodePath("Unexpected unary operation: {$operation}");
+        else
+        {
+            throw new InvalidCodePath(
+                \sprintf(
+                    'Unexpected unary operation: %s',
+                    TokenType::name($operation)
+                )
+            );
+        }
     }
 
-    if ($program instanceof Number)
+    elseif ($expression instanceof Number)
     {
-        return $program->value();
+        return $expression->value();
     }
 
 
-    if ($program instanceof Variable)
+    elseif ($expression instanceof Variable)
     {
-        $variable = $program->identifier();
+        $variable = $expression->identifier();
         if (\array_key_exists($variable, $state))
         {
             return $state[$variable];
         }
-        throw new \Exception("Undeclared variable {$variable}");
+        else
+        {
+            throw new \Exception("Undeclared variable {$variable}");
+        }
     }
 
-    $syntax = \get_class($program);
-    throw new InvalidCodePath("Unknown syntax: {$syntax}");
+    else
+    {
+        throw new InvalidCodePath(
+            \sprintf(
+                'Unknown expression: %s',
+                \get_class($expression)
+            )
+        );
+    }
 }

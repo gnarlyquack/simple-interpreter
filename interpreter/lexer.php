@@ -18,6 +18,10 @@ final class Lexer
             'BEGIN' => new Token(TokenType::TOKEN_BEGIN, 'BEGIN'),
             'END' => new Token(TokenType::TOKEN_END, 'END'),
             'DIV' => new Token(TokenType::TOKEN_INTDIV, 'DIV'),
+            'INTEGER' => new Token(TokenType::TOKEN_INTEGER, 'INTEGER'),
+            'REAL' => new Token(TokenType::TOKEN_REAL, 'REAL'),
+            'VAR' => new Token(TokenType::TOKEN_VAR, 'VAR'),
+            'PROGRAM' => new Token(TokenType::TOKEN_PROGRAM, 'PROGRAM'),
         ];
 
         $this->input = $input;
@@ -62,19 +66,27 @@ final class Lexer
 
     private function next_token(): Token
     {
-        $this->eat_chars('ctype_space');
+        $this->eat_whitespace();
+        $char = $this->eat_char();
 
-        if ($this->pos >= $this->len)
+        if ('' === $char)
         {
             return new Token(TokenType::TOKEN_EOF);
         }
 
-        $char = $this->input[$this->pos++];
-
         if (\ctype_digit($char))
         {
             $char .= $this->eat_chars('ctype_digit');
-            return new Token(TokenType::TOKEN_NUMBER, (int)$char);
+            if ('.' === $this->peek_char())
+            {
+                $char .= $this->eat_char();
+                $char .= $this->eat_chars('ctype_digit');
+                return new Token(TokenType::TOKEN_FLOAT_LITERAL, (float)$char);
+            }
+            else
+            {
+                return new Token(TokenType::TOKEN_INTEGER_LITERAL, (int)$char);
+            }
         }
 
         if (\preg_match('~^[_a-zA-Z]$~', $char))
@@ -127,6 +139,14 @@ final class Lexer
                 $char .= $this->eat_char();
                 return new Token(TokenType::TOKEN_ASSIGN, $char);
             }
+            else
+            {
+                return new Token(TokenType::TOKEN_COLON, $char);
+            }
+        }
+        if (',' === $char)
+        {
+            return new Token(TokenType::TOKEN_COMMA, $char);
         }
 
         throw new ParseError("Unknown token: {$char}");
@@ -180,13 +200,43 @@ final class Lexer
         }
         return $result;
     }
+
+
+    private function eat_whitespace(): void
+    {
+        $comment = false;
+        while ($this->pos < $this->len)
+        {
+            $char = $this->input[$this->pos];
+            if ($comment || \ctype_space($char) || '{' === $char)
+            {
+                ++$this->pos;
+                if ('{' === $char)
+                {
+                    $comment = true;
+                }
+                elseif ('}' === $char)
+                {
+                    $comment = false;
+                }
+            }
+            else
+            {
+                break;
+            }
+        }
+        if ($comment)
+        {
+            throw new ParseError('Unclosed comment');
+        }
+    }
 }
 
 
 final class TokenType
 {
     const TOKEN_EOF = 0;
-    const TOKEN_NUMBER = 1;
+    const TOKEN_INTEGER_LITERAL = 1;
     const TOKEN_PLUS = 2;
     const TOKEN_MINUS = 3;
     const TOKEN_DIV = 4;
@@ -200,10 +250,17 @@ final class TokenType
     const TOKEN_END = 12;
     const TOKEN_SEMI = 13;
     const TOKEN_INTDIV = 14;
+    const TOKEN_FLOAT_LITERAL = 15;
+    const TOKEN_INTEGER = 16;
+    const TOKEN_REAL = 17;
+    const TOKEN_COMMA = 18;
+    const TOKEN_COLON = 19;
+    const TOKEN_VAR = 20;
+    const TOKEN_PROGRAM = 21;
 
     const NAME = [
         self::TOKEN_EOF => 'EOF',
-        self::TOKEN_NUMBER => 'NUMBER',
+        self::TOKEN_INTEGER_LITERAL => 'INTEGER LITERAL',
         self::TOKEN_PLUS => 'PLUS',
         self::TOKEN_MINUS => 'MINUS',
         self::TOKEN_DIV => 'DIV',
@@ -217,6 +274,13 @@ final class TokenType
         self::TOKEN_END => 'END',
         self::TOKEN_SEMI => 'SEMI',
         self::TOKEN_INTDIV => 'INTDIV',
+        self::TOKEN_FLOAT_LITERAL => 'FLOAT LITERAL',
+        self::TOKEN_INTEGER => 'INTEGER',
+        self::TOKEN_REAL => 'REAL',
+        self::TOKEN_COMMA => 'COMMA',
+        self::TOKEN_COLON => 'COLON',
+        self::TOKEN_VAR => 'VAR',
+        self::TOKEN_PROGRAM => 'PROGRAM',
     ];
 
     /*

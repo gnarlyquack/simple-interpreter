@@ -48,5 +48,5 @@ function main(int $argc, array $argv): void
 function run_code(string $code, array &$state)
 {
     $program = parse_program(new Lexer($code));
-    return interpret($program, $state);
+    interpret($program, $state);
 }

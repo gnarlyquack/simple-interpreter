@@ -6,7 +6,96 @@ namespace interpreter;
 abstract class Ast {}
 
 
+final class Program extends Ast
+{
+    private Variable $name;
+    private Block $statements;
+
+    public function __construct(Variable $name, Block $statements)
+    {
+        $this->name = $name;
+        $this->statements = $statements;
+    }
+
+
+    public function name() : Variable
+    {
+        return $this->name;
+    }
+
+
+    public function statements(): Block
+    {
+        return $this->statements;
+    }
+}
+
+
 abstract class Statement extends Ast {}
+
+
+final class Block extends Statement
+{
+    /** @var Declaration[] */
+    private array $declarations;
+    private CompoundStatement $statements;
+
+    /**
+     * @param Declaration[] $declarations
+     */
+    public function __construct(
+        array $declarations,
+        CompoundStatement $statements)
+    {
+        $this->declarations = $declarations;
+        $this->statements = $statements;
+    }
+
+    /**
+     * @return Declaration[]
+     */
+    public function declarations(): array
+    {
+        return $this->declarations;
+    }
+
+
+    public function statements(): CompoundStatement
+    {
+        return $this->statements;
+    }
+}
+
+
+final class Declaration extends Statement
+{
+    private Token $variable;
+    private Type $type;
+
+    public function __construct(Token $variable, Type $type)
+    {
+        \assert(TokenType::TOKEN_ID === $variable->type());
+        $this->variable = $variable;
+        $this->type = $type;
+    }
+}
+
+
+final class Type
+{
+    private Token $token;
+
+    public function __construct(Token $token)
+    {
+        \assert(
+            \in_array(
+                $token->type(),
+                [TokenType::TOKEN_INTEGER, TokenType::TOKEN_REAL]
+            )
+        );
+        $this->token = $token;
+    }
+}
 
 
 final class CompoundStatement extends Statement
@@ -146,12 +235,23 @@ final class Number extends Expression
 
     public function __construct(Token $number)
     {
-        \assert(TokenType::TOKEN_NUMBER === $number->type());
+        \assert(
+            \in_array(
+                $number->type(),
+                [
+                    TokenType::TOKEN_INTEGER_LITERAL,
+                    TokenType::TOKEN_FLOAT_LITERAL,
+                ]
+            )
+        );
         $this->number = $number;
     }
 
 
-    public function value(): int
+    /**
+     * @return int|float
+     */
+    public function value()
     {
         return $this->number->value();
     }
@@ -177,25 +277,109 @@ final class Variable extends Expression
 
 
 
-function parse_program(Lexer $lexer): CompoundStatement
+function parse_program(Lexer $lexer): Program
 {
-    $statements = parse_statements($lexer);
+    $lexer->eat_token(TokenType::TOKEN_PROGRAM);
+    $name = parse_variable($lexer);
+    $lexer->eat_token(TokenType::TOKEN_SEMI);
+    $block = parse_block($lexer);
     $lexer->eat_token(TokenType::TOKEN_DOT);
-    return $statements;
+
+    return new Program($name, $block);
 }
 
 
-function parse_statements(Lexer $lexer): CompoundStatement
+function parse_block(Lexer $lexer): Block
+{
+    $declarations = parse_declarations($lexer);
+    $statements = parse_compound_statement($lexer);
+
+    return new Block($declarations, $statements);
+}
+
+
+/**
+ * @return Declaration[]
+ */
+function parse_declarations(Lexer $lexer): array
+{
+    $declarations = [];
+    if ($lexer->peek_token(TokenType::TOKEN_VAR))
+    {
+        $lexer->eat_token();
+        do
+        {
+            $declarations = \array_merge(
+                $declarations,
+                parse_declaration($lexer));
+            $lexer->eat_token(TokenType::TOKEN_SEMI);
+        } while ($lexer->peek_token(TokenType::TOKEN_ID));
+    }
+
+    return $declarations;
+}
+
+
+/**
+ * @return Declaration[]
+ */
+function parse_declaration(Lexer $lexer): array
+{
+    $ids = [];
+    while (true)
+    {
+        $ids[] = $lexer->eat_token(TokenType::TOKEN_ID);
+        if ($lexer->peek_token(TokenType::TOKEN_COMMA))
+        {
+            $lexer->eat_token();
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    $lexer->eat_token(TokenType::TOKEN_COLON);
+    $type = parse_type($lexer);
+
+    $declarations = [];
+    foreach ($ids as $id)
+    {
+        $declarations[] = new Declaration($id, $type);
+    }
+    return $declarations;
+}
+
+
+function parse_type(Lexer $lexer): Type
+{
+    $type = $lexer->eat_token(TokenType::TOKEN_INTEGER, TokenType::TOKEN_REAL);
+    return new Type($type);
+}
+
+
+function parse_compound_statement(Lexer $lexer): CompoundStatement
 {
     $lexer->eat_token(TokenType::TOKEN_BEGIN);
+    $statements = parse_statements($lexer);
+    $lexer->eat_token(TokenType::TOKEN_END);
 
+    return new CompoundStatement($statements);
+}
+
+
+/**
+ * @return Statement[]
+ */
+function parse_statements(Lexer $lexer): array
+{
     $statements = [];
     while ($token = $lexer->peek_token(
         TokenType::TOKEN_BEGIN, TokenType::TOKEN_ID, TokenType::TOKEN_SEMI))
     {
         if (TokenType::TOKEN_BEGIN === $token->type())
         {
-            $statements[] = parse_statements($lexer);
+            $statements[] = parse_compound_statement($lexer);
         }
         elseif (TokenType::TOKEN_ID === $token->type())
         {
@@ -206,17 +390,16 @@ function parse_statements(Lexer $lexer): CompoundStatement
             $lexer->eat_token();
         }
     }
-    $lexer->eat_token(TokenType::TOKEN_END);
-
-    return new CompoundStatement($statements);
+    return $statements;
 }
 
 
 function parse_assignment(Lexer $lexer): Assignment
 {
-    $variable = new Variable($lexer->eat_token(TokenType::TOKEN_ID));
+    $variable = parse_variable($lexer);
     $lexer->eat_token(TokenType::TOKEN_ASSIGN);
     $expression = parse_expression($lexer);
+
     return new Assignment($variable, $expression);
 }
 
@@ -254,27 +437,45 @@ function parse_term(Lexer $lexer): Expression
 
 function parse_factor(Lexer $lexer): Expression
 {
-    $result = $lexer->eat_token(TokenType::TOKEN_NUMBER,
+    $token = $lexer->peek_token(TokenType::TOKEN_INTEGER_LITERAL,
+                                TokenType::TOKEN_FLOAT_LITERAL,
                                 TokenType::TOKEN_LPARENS,
                                 TokenType::TOKEN_PLUS,
                                 TokenType::TOKEN_MINUS,
                                 TokenType::TOKEN_ID);
-    if (TokenType::TOKEN_NUMBER === $result->type())
+    if (!$token)
     {
-        return new Number($result);
+        throw new ParseError("Invalid term: {$token}");
     }
-    elseif (TokenType::TOKEN_LPARENS === $result->type())
+
+    $type = $token->type();
+    if (TokenType::TOKEN_INTEGER_LITERAL === $type
+        || TokenType::TOKEN_FLOAT_LITERAL === $type)
     {
+        return new Number($lexer->eat_token());
+    }
+    elseif (TokenType::TOKEN_LPARENS === $type)
+    {
+        $lexer->eat_token();
         $result = parse_expression($lexer);
         $lexer->eat_token(TokenType::TOKEN_RPARENS);
         return $result;
     }
-    elseif (TokenType::TOKEN_ID === $result->type())
+    elseif (TokenType::TOKEN_ID === $type)
     {
-        return new Variable($result);
+        return parse_variable($lexer);
     }
     else
     {
-        return new UnaryOperation($result, parse_factor($lexer));
+        $operation = $lexer->eat_token();
+        $expression = parse_factor($lexer);
+        return new UnaryOperation($operation, $expression);
     }
+}
+
+
+function parse_variable(Lexer $lexer): Variable
+{
+    $variable = $lexer->eat_token(TokenType::TOKEN_ID);
+    return new Variable($variable);
 }
