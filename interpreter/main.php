@@ -28,6 +28,7 @@ function main(int $argc, array $argv): void
     {
         require 'lexer.php';
         require 'parser.php';
+        require 'symbol.php';
         require 'interpreter.php';
 
         $state = array();
@@ -48,5 +49,6 @@ function main(int $argc, array $argv): void
 function run_code(string $code, array &$state)
 {
     $program = parse_program(new Lexer($code));
+    check_symbols($program);
     interpret($program, $state);
 }

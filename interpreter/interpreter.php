@@ -19,16 +19,7 @@ function interpret_statement(Statement $statement, array &$state): void
 {
     if ($statement instanceof Block)
     {
-        foreach ($statement->declarations() as $declaration)
-        {
-            interpret_statement($declaration, $state);
-        }
         interpret_statement($statement->statements(), $state);
-    }
-
-    elseif ($statement instanceof Declaration)
-    {
-        // do nothing, for now
     }
 
     elseif ($statement instanceof CompoundStatement)
@@ -41,10 +32,11 @@ function interpret_statement(Statement $statement, array &$state): void
 
     elseif ($statement instanceof Assignment)
     {
-        $variable = $statement->variable();
+        $identifier = $statement->variable()->identifier();
         $value = interpret_expression($statement->expression(), $state);
-        $state[$variable] = $value;
+        $state[$identifier] = $value;
     }
+
     else
     {
         $syntax = \get_class($statement);
@@ -129,14 +121,7 @@ function interpret_expression(Expression $expression, array &$state)
     elseif ($expression instanceof Variable)
     {
         $variable = $expression->identifier();
-        if (\array_key_exists($variable, $state))
-        {
-            return $state[$variable];
-        }
-        else
-        {
-            throw new \Exception("Undeclared variable {$variable}");
-        }
+        return $state[$variable];
     }
 
     else

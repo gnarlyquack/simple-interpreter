@@ -4,6 +4,7 @@ use easytest\Context;
 use function easytest\assert_identical;
 use function easytest\assert_throws;
 
+use interpreter\NameError;
 use interpreter\ParseError;
 use function interpreter\run_code;
 
@@ -23,10 +24,18 @@ function test_arithmetic_expressions(Context $c)
         ['5 - - - + - 3', 8],
         ['5 - - - + - (3 + 4) - +2', 10],
     ];
-    foreach ($tests as [$expr, $expected])
+    foreach ($tests as [$expression, $expected])
     {
+        $code = <<<CODE
+PROGRAM Test;
+VAR
+    a : INTEGER;
+BEGIN
+    a := {$expression}
+END.
+CODE;
         $actual = [];
-        run_code("PROGRAM test; BEGIN a := {$expr} END.", $actual);
+        run_code($code, $actual);
 
         $c->assert_identical($expected, $actual['a']);
     }
@@ -43,7 +52,15 @@ function test_invalid_syntax(Context $c)
         $c->assert_throws(
             ParseError::class,
             function() use ($statement, &$state) {
-                run_code("PROGRAM test; BEGIN a := {$statement} END.", $state);
+                $code = <<<CODE
+PROGRAM Test;
+VAR
+    a : INTEGER;
+BEGIN
+    a := {$statement};
+END.
+CODE;
+                run_code($code, $state);
             }
         );
         $c->assert_identical([], $state, 'resulting state');
@@ -91,6 +108,10 @@ function test_case_sensitivity()
 {
     $code = <<<'CODE'
 PROGRAM TestCaseSensitivity;
+VAR
+    number      : INTEGER;
+    a, b, c, x  : INTEGER;
+    _half_x     : INTEGER;
 BEGIN
 
     BEGIN
@@ -118,4 +139,47 @@ CODE;
     run_code($code, $actual);
 
     assert_identical($expected, $actual);
+}
+
+
+function test_undefined_variable_referencd()
+{
+    $actual = assert_throws(
+        NameError::class,
+        function() {
+            $code = <<<'CODE'
+PROGRAM NameError1;
+VAR
+   a : INTEGER;
+BEGIN
+   a := 2 + b;
+END.
+CODE;
+            $state = [];
+            run_code($code, $state);
+        }
+    );
+    assert_identical("Undeclared variable: b", $actual->getMessage());
+}
+
+
+function test_undefined_variable_assignment()
+{
+    $actual = assert_throws(
+        NameError::class,
+        function() {
+            $code = <<<'CODE'
+PROGRAM NameError2;
+VAR
+   b : INTEGER;
+BEGIN
+   b := 1;
+   a := b + 2;
+END.
+CODE;
+            $state = [];
+            run_code($code, $state);
+        }
+    );
+    assert_identical("Undeclared variable: a", $actual->getMessage());
 }

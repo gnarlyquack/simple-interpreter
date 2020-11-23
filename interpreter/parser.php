@@ -69,14 +69,25 @@ final class Block extends Statement
 
 final class Declaration extends Statement
 {
-    private Token $variable;
+    private Variable $variable;
     private Type $type;
 
-    public function __construct(Token $variable, Type $type)
+    public function __construct(Variable $variable, Type $type)
     {
-        \assert(TokenType::TOKEN_ID === $variable->type());
         $this->variable = $variable;
         $this->type = $type;
+    }
+
+
+    public function variable(): Variable
+    {
+        return $this->variable;
+    }
+
+
+    public function type(): Type
+    {
+        return $this->type;
     }
 }
 
@@ -94,6 +105,11 @@ final class Type
             )
         );
         $this->token = $token;
+    }
+
+    public function name(): string
+    {
+        return $this->token->value();
     }
 }
 
@@ -134,9 +150,9 @@ final class Assignment extends Statement
     }
 
 
-    public function variable(): string
+    public function variable(): Variable
     {
-        return $this->variable->identifier();
+        return $this->variable;
     }
 
 
@@ -328,7 +344,7 @@ function parse_declaration(Lexer $lexer): array
     $ids = [];
     while (true)
     {
-        $ids[] = $lexer->eat_token(TokenType::TOKEN_ID);
+        $ids[] = parse_variable($lexer);
         if ($lexer->peek_token(TokenType::TOKEN_COMMA))
         {
             $lexer->eat_token();
