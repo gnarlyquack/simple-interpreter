@@ -1,5 +1,13 @@
 {
+    "autoload": {
+        "files": [
+            "interpreter/interpreter.php",
+            "interpreter/lexer.php",
+            "interpreter/main.php",
+            "interpreter/parser.php"]
+    },
     "require-dev": {
-        "phpstan/phpstan": "^0.12.56"
+        "phpstan/phpstan": "^0.12.56",
+        "easytest/easytest": "^0.5.0"
     }
 }

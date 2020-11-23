@@ -1,6 +1,10 @@
-.PHONY: run
-run:
-	./interpret
+.PHONY: check
+check: analyse test
+
+
+.PHONY: test
+test:
+	vendor/bin/easytest
 
 
 .PHONY: analyse

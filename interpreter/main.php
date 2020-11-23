@@ -30,13 +30,23 @@ function main(int $argc, array $argv): void
         require 'parser.php';
         require 'interpreter.php';
 
-        $program = parse_program(new Lexer($input));
         $state = array();
-        interpret($program, $state);
+        run_code($input, $state);
 
         foreach ($state as $key => $value)
         {
             \printf("%s: %s\n", $key, \var_export($value, true));
         }
     }
+}
+
+
+/**
+ * @param array<string, mixed> $state
+ * @return mixed
+ */
+function run_code(string $code, array &$state)
+{
+    $program = parse_program(new Lexer($code));
+    return interpret($program, $state);
 }
