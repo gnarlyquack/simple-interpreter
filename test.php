@@ -179,7 +179,7 @@ CODE;
             run_code($code, $state);
         }
     );
-    assert_identical("Undeclared variable: b", $actual->getMessage());
+    assert_identical("Undeclared name: b", $actual->getMessage());
 }
 
 
@@ -201,5 +201,27 @@ CODE;
             run_code($code, $state);
         }
     );
-    assert_identical("Undeclared variable: a", $actual->getMessage());
+    assert_identical("Undeclared name: a", $actual->getMessage());
+}
+
+
+function test_redefined_variable()
+{
+    $actual = assert_throws(
+        NameError::class,
+        function() {
+            $code = <<<'CODE'
+program SymTab6;
+var
+    x, y : integer;
+    y    : real;
+begin
+   x := x + y;
+end.
+CODE;
+            $state = [];
+            run_code($code, $state);
+        }
+    );
+    assert_identical("Redefinition of name: y", $actual->getMessage());
 }

@@ -6,7 +6,11 @@ namespace interpreter;
 class NameError extends \Exception {}
 
 
-abstract class Symbol {}
+
+abstract class Symbol
+{
+    abstract public function __toString(): string;
+}
 
 
 final class BuiltInSymbol extends Symbol
@@ -20,6 +24,12 @@ final class BuiltInSymbol extends Symbol
 
 
     public function name(): string
+    {
+        return $this->name;
+    }
+
+
+    public function __toString(): string
     {
         return $this->name;
     }
@@ -42,24 +52,72 @@ final class VariableSymbol extends Symbol
     {
         return $this->name;
     }
+
+
+    public function __toString(): string
+    {
+        return "{$this->name}: {$this->type}";
+    }
 }
 
 
 
-function check_symbols(Program $program): void
+final class SymbolTable
 {
-    $symbols = [
-        'INTEGER' => new BuiltInSymbol('INTEGER'),
-        'REAL' => new BuiltInSymbol('REAL'),
-    ];
+    /** @var array<string, Symbol> */
+    private array $symbols;
+
+    public function __construct()
+    {
+        $this->symbols = [];
+        $this->add_builtin('INTEGER');
+        $this->add_builtin('REAL');
+    }
+
+
+    public function add_variable(string $name, string $type): void
+    {
+        $lower = \strtolower($name);
+        if (isset($this->symbols[$lower]))
+        {
+            throw new NameError("Redefinition of name: {$name}");
+        }
+        $type = $this->lookup($type);
+
+        // echo "Adding symbol '{$name}' of type {$type}\n";
+        $this->symbols[$lower] = new VariableSymbol($name, $type);
+    }
+
+
+    public function lookup(string $name): Symbol
+    {
+        $lower = \strtolower($name);
+        if (!isset($this->symbols[$lower]))
+        {
+            throw new NameError("Undeclared name: {$name}");
+        }
+        // echo "Looking up symbol '{$name}'\n";
+        return $this->symbols[$lower];
+    }
+
+
+    private function add_builtin(string $name): void
+    {
+        // echo "Adding built-in symbol '{$name}'\n";
+        $this->symbols[\strtolower($name)] = new BuiltInSymbol($name);
+    }
+}
+
+
+
+function check_program(Program $program): void
+{
+    $symbols = new SymbolTable;
     check_statement($program->statements(), $symbols);
 }
 
 
-/**
- * @param array<string, Symbol> $symbols
- */
-function check_statement(Statement $statement, array &$symbols): void
+function check_statement(Statement $statement, SymbolTable $symbols): void
 {
     if ($statement instanceof Block)
     {
@@ -86,30 +144,19 @@ function check_statement(Statement $statement, array &$symbols): void
 
     else
     {
-        $syntax = \get_class($statement);
-        throw new InvalidCodePath("Unknown statement: {$syntax}");
+        $type = \get_class($statement);
+        throw new InvalidCodePath("Unknown statement type: {$type}");
     }
 }
 
 
-/**
- * @param array<string, Symbol> $symbols
- */
-function check_declaration(Declaration $declaration, array &$symbols): void
+function check_declaration(Declaration $declaration, SymbolTable $symbols): void
 {
     if ($declaration instanceof VariableDeclaration)
     {
+        $identifier = $declaration->variable()->identifier();
         $type = $declaration->type()->name();
-        if (isset($symbols[$type]))
-        {
-            $type = $symbols[$type];
-            $identifier = $declaration->variable()->identifier();
-            $symbols[$identifier] = new VariableSymbol($identifier, $type);
-        }
-        else
-        {
-            throw new NameError("Unknown type {$type}");
-        }
+        $symbols->add_variable($identifier, $type);
     }
 
     elseif ($declaration instanceof ProcedureDeclaration)
@@ -125,10 +172,7 @@ function check_declaration(Declaration $declaration, array &$symbols): void
 }
 
 
-/**
- * @param array<string, Symbol> $symbols
- */
-function check_expression(Expression $expression, array &$symbols): void
+function check_expression(Expression $expression, SymbolTable $symbols): void
 {
     if ($expression instanceof BinaryOperation)
     {
@@ -154,24 +198,13 @@ function check_expression(Expression $expression, array &$symbols): void
 
     else
     {
-        throw new InvalidCodePath(
-            \sprintf(
-                'Unknown expression: %s',
-                \get_class($expression)
-            )
-        );
+        $type = \get_class($expression);
+        throw new InvalidCodePath("Unknown expression type: {$type}");
     }
 }
 
 
-/**
- * @param array<string, Symbol> $symbols
- */
-function check_variable(Variable $variable, array &$symbols): void
+function check_variable(Variable $variable, SymbolTable $symbols): void
 {
-    $identifier = $variable->identifier();
-    if (!isset($symbols[$identifier]))
-    {
-        throw new NameError("Undeclared variable: {$identifier}");
-    }
+    $symbols->lookup($variable->identifier());
 }

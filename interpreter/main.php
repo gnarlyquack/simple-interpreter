@@ -26,10 +26,10 @@ function main(int $argc, array $argv): void
     $input = \file_get_contents($file);
     if ($input)
     {
+        require 'analyzer.php';
+        require 'interpreter.php';
         require 'lexer.php';
         require 'parser.php';
-        require 'symbol.php';
-        require 'interpreter.php';
 
         $state = array();
         run_code($input, $state);
@@ -49,6 +49,6 @@ function main(int $argc, array $argv): void
 function run_code(string $code, array &$state)
 {
     $program = parse_program(new Lexer($code));
-    check_symbols($program);
+    check_program($program);
     interpret($program, $state);
 }

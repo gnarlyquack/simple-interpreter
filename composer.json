@@ -1,11 +1,11 @@
 {
     "autoload": {
         "files": [
+            "interpreter/analyzer.php",
             "interpreter/interpreter.php",
             "interpreter/lexer.php",
             "interpreter/main.php",
-            "interpreter/parser.php",
-            "interpreter/symbol.php"]
+            "interpreter/parser.php"]
     },
     "require-dev": {
         "phpstan/phpstan": "^0.12.56",
