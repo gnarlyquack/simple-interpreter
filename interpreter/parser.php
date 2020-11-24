@@ -67,7 +67,10 @@ final class Block extends Statement
 }
 
 
-final class Declaration extends Statement
+abstract class Declaration extends Statement {}
+
+
+final class VariableDeclaration extends Declaration
 {
     private Variable $variable;
     private Type $type;
@@ -88,6 +91,19 @@ final class Declaration extends Statement
     public function type(): Type
     {
         return $this->type;
+    }
+}
+
+
+final class ProcedureDeclaration extends Declaration
+{
+    private Variable $name;
+    private Block $body;
+
+    public function __construct(Variable $name, Block $body)
+    {
+        $this->name = $name;
+        $this->body = $body;
     }
 }
 
@@ -327,9 +343,14 @@ function parse_declarations(Lexer $lexer): array
         {
             $declarations = \array_merge(
                 $declarations,
-                parse_declaration($lexer));
+                parse_variable_declaration($lexer));
             $lexer->eat_token(TokenType::TOKEN_SEMI);
         } while ($lexer->peek_token(TokenType::TOKEN_ID));
+    }
+
+    while($lexer->peek_token(TokenType::TOKEN_PROCEDURE))
+    {
+        $declarations[] = parse_procedure_declaration($lexer);
     }
 
     return $declarations;
@@ -337,9 +358,9 @@ function parse_declarations(Lexer $lexer): array
 
 
 /**
- * @return Declaration[]
+ * @return VariableDeclaration[]
  */
-function parse_declaration(Lexer $lexer): array
+function parse_variable_declaration(Lexer $lexer): array
 {
     $ids = [];
     while (true)
@@ -361,9 +382,21 @@ function parse_declaration(Lexer $lexer): array
     $declarations = [];
     foreach ($ids as $id)
     {
-        $declarations[] = new Declaration($id, $type);
+        $declarations[] = new VariableDeclaration($id, $type);
     }
     return $declarations;
+}
+
+
+function parse_procedure_declaration(Lexer $lexer): ProcedureDeclaration
+{
+    $lexer->eat_token(TokenType::TOKEN_PROCEDURE);
+    $name = parse_variable($lexer);
+    $lexer->eat_token(TokenType::TOKEN_SEMI);
+    $body = parse_block($lexer);
+    $lexer->eat_token(TokenType::TOKEN_SEMI);
+
+    return new ProcedureDeclaration($name, $body);
 }
 
 
@@ -461,6 +494,7 @@ function parse_factor(Lexer $lexer): Expression
                                 TokenType::TOKEN_ID);
     if (!$token)
     {
+        $token = $lexer->eat_token();
         throw new ParseError("Invalid term: {$token}");
     }
 

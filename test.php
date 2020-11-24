@@ -44,9 +44,12 @@ CODE;
 
 function test_invalid_syntax(Context $c)
 {
-    $statements = ['10 *', '1 (1 + 2)'];
+    $statements = [
+        ['10 *', "Invalid term: Token(SEMI, ';')"],
+        ['1 (1 + 2)', "Expected token END but got token Token(LPARENS, '(')"]
+    ];
 
-    foreach ($statements as $statement)
+    foreach ($statements as [$statement, $error])
     {
         $state = [];
         $c->assert_throws(
@@ -61,8 +64,11 @@ BEGIN
 END.
 CODE;
                 run_code($code, $state);
-            }
+            },
+            null,
+            $result
         );
+        $c->assert_identical($error, $result->getMessage());
         $c->assert_identical([], $state, 'resulting state');
     }
 }
@@ -76,7 +82,21 @@ VAR
     number      : INTEGER;
     a, b, c, x  : INTEGER;
     y           : REAL;
-BEGIN {Test}
+
+PROCEDURE P1;
+VAR
+   a : REAL;
+   k : INTEGER;
+   PROCEDURE P2;
+   VAR
+      a, z : INTEGER;
+   BEGIN {P2}
+      z := 777;
+   END;  {P2}
+BEGIN {P1}
+END;  {P1}
+
+BEGIN {TestProgram}
     BEGIN
         number := 2;
         a := number;
@@ -85,7 +105,7 @@ BEGIN {Test}
     END;
     x := 11;
     y := 20 / 7 + 3.14
-END. {Test}
+END. {TestProgram}
 CODE;
 
     $expected = [
@@ -142,7 +162,7 @@ CODE;
 }
 
 
-function test_undefined_variable_referencd()
+function test_undefined_variable_reference()
 {
     $actual = assert_throws(
         NameError::class,

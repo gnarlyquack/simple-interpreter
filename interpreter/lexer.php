@@ -22,6 +22,7 @@ final class Lexer
             'REAL' => new Token(TokenType::TOKEN_REAL, 'REAL'),
             'VAR' => new Token(TokenType::TOKEN_VAR, 'VAR'),
             'PROGRAM' => new Token(TokenType::TOKEN_PROGRAM, 'PROGRAM'),
+            'PROCEDURE' => new Token(TokenType::TOKEN_PROCEDURE, 'PROCEDURE'),
         ];
 
         $this->input = $input;
@@ -257,6 +258,7 @@ final class TokenType
     const TOKEN_COLON = 19;
     const TOKEN_VAR = 20;
     const TOKEN_PROGRAM = 21;
+    const TOKEN_PROCEDURE = 22;
 
     const NAME = [
         self::TOKEN_EOF => 'EOF',
@@ -281,6 +283,7 @@ final class TokenType
         self::TOKEN_COLON => 'COLON',
         self::TOKEN_VAR => 'VAR',
         self::TOKEN_PROGRAM => 'PROGRAM',
+        self::TOKEN_PROCEDURE => 'PROCEDURE',
     ];
 
     /*

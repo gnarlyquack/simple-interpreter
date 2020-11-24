@@ -97,16 +97,30 @@ function check_statement(Statement $statement, array &$symbols): void
  */
 function check_declaration(Declaration $declaration, array &$symbols): void
 {
-    $type = $declaration->type()->name();
-    if (isset($symbols[$type]))
+    if ($declaration instanceof VariableDeclaration)
     {
-        $type = $symbols[$type];
-        $identifier = $declaration->variable()->identifier();
-        $symbols[$identifier] = new VariableSymbol($identifier, $type);
+        $type = $declaration->type()->name();
+        if (isset($symbols[$type]))
+        {
+            $type = $symbols[$type];
+            $identifier = $declaration->variable()->identifier();
+            $symbols[$identifier] = new VariableSymbol($identifier, $type);
+        }
+        else
+        {
+            throw new NameError("Unknown type {$type}");
+        }
     }
+
+    elseif ($declaration instanceof ProcedureDeclaration)
+    {
+        // do nothing, for now
+    }
+
     else
     {
-        throw new NameError("Unknown type {$type}");
+        $type = \get_class($declaration);
+        throw new InvalidCodePath("Unknown declaration type: {$type}");
     }
 }
 
