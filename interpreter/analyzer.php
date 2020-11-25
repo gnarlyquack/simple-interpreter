@@ -61,15 +61,40 @@ final class VariableSymbol extends Symbol
 }
 
 
+final class ProcedureSymbol extends Symbol
+{
+    private string $name;
+    /** @var VariableDeclaration[] */
+    private array $parameters;
+
+    /**
+     * @param VariableDeclaration[] $parameters
+     */
+    public function __construct(string $name, array $parameters)
+    {
+        $this->name = $name;
+        $this->parameters = $parameters;
+    }
+
+
+    public function __toString(): string
+    {
+        $parameters = \implode('; ', $this->parameters);
+        return "{$this->name}({$parameters})";
+    }
+}
+
+
 
 final class SymbolTable
 {
-    /** @var array<string, Symbol> */
-    private array $symbols;
+    private int $scope = 0;
+    /** @var array<string, Symbol>[] */
+    private array $scopes = [];
 
     public function __construct()
     {
-        $this->symbols = [];
+        $this->scopes[] = [];
         $this->add_builtin('INTEGER');
         $this->add_builtin('REAL');
     }
@@ -77,34 +102,72 @@ final class SymbolTable
 
     public function add_variable(string $name, string $type): void
     {
+        $scope = $this->scope;
         $lower = \strtolower($name);
-        if (isset($this->symbols[$lower]))
+        if (isset($this->scopes[$scope][$lower]))
         {
             throw new NameError("Redefinition of name: {$name}");
         }
         $type = $this->lookup($type);
 
-        // echo "Adding symbol '{$name}' of type {$type}\n";
-        $this->symbols[$lower] = new VariableSymbol($name, $type);
+        $symbol = new VariableSymbol($name, $type);
+        // echo "Scope {$this->scope}: adding symbol {$symbol}\n";
+        $this->scopes[$scope][$lower] = $symbol;
+    }
+
+
+    /**
+     * @param VariableDeclaration[] $parameters
+     */
+    public function add_procedure(string $name, array $parameters): void
+    {
+        $scope = $this->scope;
+        $lower = \strtolower($name);
+        if (isset($this->scopes[$scope][$lower]))
+        {
+            throw new NameError("Redefinition of name: {$name}");
+        }
+
+        $symbol = new ProcedureSymbol($name, $parameters);
+        // echo "Scope {$this->scope}: adding symbol {$symbol}\n";
+        $this->scopes[$scope][$lower] = $symbol;
     }
 
 
     public function lookup(string $name): Symbol
     {
         $lower = \strtolower($name);
-        if (!isset($this->symbols[$lower]))
+        for ($scope = $this->scope; $scope >= 0; --$scope)
         {
-            throw new NameError("Undeclared name: {$name}");
+            if (isset($this->scopes[$scope][$lower]))
+            {
+                $symbol = $this->scopes[$scope][$lower];
+                // echo "Scope {$scope}: Found symbol {$symbol}\n";
+                return $symbol;
+            }
         }
-        // echo "Looking up symbol '{$name}'\n";
-        return $this->symbols[$lower];
+        throw new NameError("Undeclared name: {$name}");
+    }
+
+
+    public function push_scope(): void
+    {
+        $this->scopes[] = [];
+        ++$this->scope;
+    }
+
+
+    public function pop_scope(): void
+    {
+        \array_pop($this->scopes);
+        --$this->scope;
     }
 
 
     private function add_builtin(string $name): void
     {
         // echo "Adding built-in symbol '{$name}'\n";
-        $this->symbols[\strtolower($name)] = new BuiltInSymbol($name);
+        $this->scopes[0][\strtolower($name)] = new BuiltInSymbol($name);
     }
 }
 
@@ -161,7 +224,17 @@ function check_declaration(Declaration $declaration, SymbolTable $symbols): void
 
     elseif ($declaration instanceof ProcedureDeclaration)
     {
-        // do nothing, for now
+        $name = $declaration->name()->identifier();
+        $parameters = $declaration->parameters();
+        $symbols->add_procedure($name, $parameters);
+
+        $symbols->push_scope();
+        foreach ($parameters as $parameter)
+        {
+            check_declaration($parameter, $symbols);
+        }
+        check_statement($declaration->body(), $symbols);
+        $symbols->pop_scope();
     }
 
     else

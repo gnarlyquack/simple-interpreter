@@ -92,18 +92,50 @@ final class VariableDeclaration extends Declaration
     {
         return $this->type;
     }
+
+
+    public function __toString(): string
+    {
+        return "{$this->variable->identifier()}: {$this->type->name()}";
+    }
 }
 
 
 final class ProcedureDeclaration extends Declaration
 {
     private Variable $name;
+    /** @var VariableDeclaration[] */
+    private array $parameters;
     private Block $body;
 
-    public function __construct(Variable $name, Block $body)
+    /**
+     * @param VariableDeclaration[] $parameters
+     */
+    public function __construct(Variable $name, array $parameters, Block $body)
     {
         $this->name = $name;
+        $this->parameters = $parameters;
         $this->body = $body;
+    }
+
+
+    public function name(): Variable
+    {
+        return $this->name;
+    }
+
+    /**
+     * @return VariableDeclaration[]
+     */
+    public function parameters(): array
+    {
+        return $this->parameters;
+    }
+
+
+    public function body(): Block
+    {
+        return $this->body;
     }
 }
 
@@ -392,11 +424,46 @@ function parse_procedure_declaration(Lexer $lexer): ProcedureDeclaration
 {
     $lexer->eat_token(TokenType::TOKEN_PROCEDURE);
     $name = parse_variable($lexer);
+
+    if ($lexer->peek_token(TokenType::TOKEN_LPARENS))
+    {
+        $lexer->eat_token();
+        $parameters = parse_parameters($lexer);
+        $lexer->eat_token(TokenType::TOKEN_RPARENS);
+    }
+    else
+    {
+        $parameters = [];
+    }
+
     $lexer->eat_token(TokenType::TOKEN_SEMI);
     $body = parse_block($lexer);
     $lexer->eat_token(TokenType::TOKEN_SEMI);
 
-    return new ProcedureDeclaration($name, $body);
+    return new ProcedureDeclaration($name, $parameters, $body);
+}
+
+
+/**
+ * @return VariableDeclaration[]
+ */
+function parse_parameters(Lexer $lexer): array
+{
+    $parameters = [];
+    while (true)
+    {
+        $parameters = \array_merge(
+            $parameters, parse_variable_declaration($lexer));
+        if ($lexer->peek_token(TokenType::TOKEN_SEMI))
+        {
+            $lexer->eat_token();
+        }
+        else
+        {
+            break;
+        }
+    }
+    return $parameters;
 }
 
 

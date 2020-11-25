@@ -225,3 +225,44 @@ CODE;
     );
     assert_identical("Redefinition of name: y", $actual->getMessage());
 }
+
+
+function test_scope()
+{
+    $code = <<<'CODE'
+program Main;
+   var b, x, y : real;
+   z : integer;
+
+   procedure AlphaA(a : integer);
+      var b : integer;
+
+      procedure Beta(c : integer);
+         var y : integer;
+
+         procedure Gamma(c : integer);
+            var x : integer;
+         begin { Gamma }
+            x := a + b + c + x + y + z;
+         end;  { Gamma }
+
+      begin { Beta }
+
+      end;  { Beta }
+
+   begin { AlphaA }
+
+   end;  { AlphaA }
+
+   procedure AlphaB(a : integer);
+      var c : real;
+   begin { AlphaB }
+      c := a + b;
+   end;  { AlphaB }
+
+begin { Main }
+end.  { Main }
+CODE;
+    $state = [];
+    run_code($code, $state);
+}
