@@ -4,8 +4,8 @@ use easytest\Context;
 use function easytest\assert_identical;
 use function easytest\assert_throws;
 
-use interpreter\NameError;
 use interpreter\ParseError;
+use interpreter\SemanticError;
 use function interpreter\run_code;
 
 
@@ -45,8 +45,8 @@ CODE;
 function test_invalid_syntax(Context $c)
 {
     $statements = [
-        ['10 *', "Invalid term: Token(SEMI, ';')"],
-        ['1 (1 + 2)', "Expected token END but got token Token(LPARENS, '(')"]
+        ['10 *', "Unexpected token: Token(SEMI, ';')"],
+        ['1 (1 + 2)', "Unexpected token: Token(LPARENS, '(')"]
     ];
 
     foreach ($statements as [$statement, $error])
@@ -161,7 +161,7 @@ CODE;
 function test_undefined_variable_reference()
 {
     $actual = assert_throws(
-        NameError::class,
+        SemanticError::class,
         function() {
             $code = <<<'CODE'
 PROGRAM NameError1;
@@ -175,14 +175,17 @@ CODE;
             run_code($code, $state);
         }
     );
-    assert_identical("Undeclared name: b", $actual->getMessage());
+    assert_identical(
+        "Undeclared identifier: Token(ID, 'b')",
+        $actual->getMessage()
+    );
 }
 
 
 function test_undefined_variable_assignment()
 {
     $actual = assert_throws(
-        NameError::class,
+        SemanticError::class,
         function() {
             $code = <<<'CODE'
 PROGRAM NameError2;
@@ -197,14 +200,17 @@ CODE;
             run_code($code, $state);
         }
     );
-    assert_identical("Undeclared name: a", $actual->getMessage());
+    assert_identical(
+        "Undeclared identifier: Token(ID, 'a')",
+        $actual->getMessage()
+    );
 }
 
 
 function test_redefined_variable()
 {
     $actual = assert_throws(
-        NameError::class,
+        SemanticError::class,
         function() {
             $code = <<<'CODE'
 program SymTab6;
@@ -218,7 +224,10 @@ CODE;
             run_code($code, $state);
         }
     );
-    assert_identical("Redefinition of name: y", $actual->getMessage());
+    assert_identical(
+        "Redefinition of identifier: Token(ID, 'y')",
+        $actual->getMessage()
+    );
 }
 
 

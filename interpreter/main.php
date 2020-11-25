@@ -4,7 +4,92 @@ namespace interpreter;
 
 
 final class InvalidCodePath extends \Exception {}
-final class ParseError extends \Exception {}
+
+
+abstract class Error extends \Exception
+{
+    private int $col;
+
+    public function __construct(string $message, int $line, int $col)
+    {
+        parent::__construct($message);
+        $this->line = $line;
+        $this->col = $col;
+    }
+
+    public function __toString(): string
+    {
+        return \sprintf(
+            '%s: %s at %d:%s',
+            \get_class($this),
+            $this->message,
+            $this->line,
+            $this->col
+        );
+    }
+}
+
+final class LexicalError extends Error {}
+final class ParseError extends Error {}
+final class SemanticError extends Error {}
+
+
+
+/**
+ * @return never
+ */
+function unexpected_token(Token $token)
+{
+    throw new ParseError(
+        "Unexpected token: {$token}",
+        $token->line(),
+        $token->col()
+    );
+}
+
+
+/**
+ * @return never
+ */
+function unknown_token(string $token, int $line, int $col)
+{
+    throw new LexicalError("Unknown token '{$token}'", $line, $col);
+}
+
+
+/**
+ * @return never
+ */
+function unclosed_comment(int $line, int $col)
+{
+    throw new LexicalError('Unclosed comment beginning', $line, $col);
+}
+
+
+/**
+ * @return never
+ */
+function undeclared_identifier(Token $token)
+{
+    throw new SemanticError(
+        "Undeclared identifier: {$token}",
+        $token->line(),
+        $token->col()
+    );
+}
+
+
+/**
+ * @return never
+ */
+function duplicate_identifier(Token $token)
+{
+    throw new SemanticError(
+        "Redefinition of identifier: {$token}",
+        $token->line(),
+        $token->col()
+    );
+}
 
 
 /**

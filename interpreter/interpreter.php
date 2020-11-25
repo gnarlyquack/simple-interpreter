@@ -32,7 +32,7 @@ function interpret_statement(Statement $statement, array &$state): void
 
     elseif ($statement instanceof Assignment)
     {
-        $identifier = $statement->variable()->identifier();
+        $identifier = $statement->variable()->name();
         $value = interpret_expression($statement->expression(), $state);
         $state[$identifier] = $value;
     }
@@ -120,7 +120,7 @@ function interpret_expression(Expression $expression, array &$state)
 
     elseif ($expression instanceof Variable)
     {
-        $variable = $expression->identifier();
+        $variable = $expression->name();
         return $state[$variable];
     }
 

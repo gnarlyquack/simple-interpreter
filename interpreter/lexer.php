@@ -5,29 +5,33 @@ namespace interpreter;
 
 final class Lexer
 {
+    const KEYWORDS = [
+        'BEGIN' => TokenType::TOKEN_BEGIN,
+        'END' => TokenType::TOKEN_END,
+        'DIV' => TokenType::TOKEN_INTDIV,
+        'INTEGER' => TokenType::TOKEN_INTEGER,
+        'REAL' => TokenType::TOKEN_REAL,
+        'VAR' => TokenType::TOKEN_VAR,
+        'PROGRAM' => TokenType::TOKEN_PROGRAM,
+        'PROCEDURE' => TokenType::TOKEN_PROCEDURE,
+    ];
+
     private string $input;
     private int $len;
     private int $pos;
+    private int $line;
+    private int $col;
     private Token $current_token;
     /** @var Token[] */
     private array $keywords;
 
     public function __construct(string $input)
     {
-        $this->keywords = [
-            'BEGIN' => new Token(TokenType::TOKEN_BEGIN, 'BEGIN'),
-            'END' => new Token(TokenType::TOKEN_END, 'END'),
-            'DIV' => new Token(TokenType::TOKEN_INTDIV, 'DIV'),
-            'INTEGER' => new Token(TokenType::TOKEN_INTEGER, 'INTEGER'),
-            'REAL' => new Token(TokenType::TOKEN_REAL, 'REAL'),
-            'VAR' => new Token(TokenType::TOKEN_VAR, 'VAR'),
-            'PROGRAM' => new Token(TokenType::TOKEN_PROGRAM, 'PROGRAM'),
-            'PROCEDURE' => new Token(TokenType::TOKEN_PROCEDURE, 'PROCEDURE'),
-        ];
 
         $this->input = $input;
         $this->len = \strlen($input);
         $this->pos = 0;
+        $this->line = $this->col = 1;
         $this->current_token = $this->next_token();
     }
 
@@ -49,10 +53,7 @@ final class Lexer
             return $result;
         }
 
-        $expected = \implode(
-            ' or ',
-            \array_map([TokenType::class, 'name'], $types));
-        throw new ParseError("Expected token {$expected} but got token {$result}");
+        unexpected_token($result);
     }
 
     /**
@@ -72,7 +73,7 @@ final class Lexer
 
         if ('' === $char)
         {
-            return new Token(TokenType::TOKEN_EOF);
+            return $this->token(TokenType::TOKEN_EOF, $char);
         }
 
         if (\ctype_digit($char))
@@ -82,11 +83,11 @@ final class Lexer
             {
                 $char .= $this->eat_char();
                 $char .= $this->eat_chars('ctype_digit');
-                return new Token(TokenType::TOKEN_FLOAT_LITERAL, (float)$char);
+                return $this->token(TokenType::TOKEN_FLOAT_LITERAL, (float)$char);
             }
             else
             {
-                return new Token(TokenType::TOKEN_INTEGER_LITERAL, (int)$char);
+                return $this->token(TokenType::TOKEN_INTEGER_LITERAL, (int)$char);
             }
         }
 
@@ -94,63 +95,63 @@ final class Lexer
         {
             $char .= $this->eat_pattern('~\\G[_a-zA-Z0-9]+~');
             $keyword = \strtoupper($char);
-            if (isset($this->keywords[$keyword]))
+            if (isset(self::KEYWORDS[$keyword]))
             {
-                return $this->keywords[$keyword];
+                return $this->token(self::KEYWORDS[$keyword], $keyword);
             }
-            return new Token(TokenType::TOKEN_ID, \strtolower($char));
+            return $this->token(TokenType::TOKEN_ID, \strtolower($char));
         }
 
         if ('+' === $char)
         {
-            return new Token(TokenType::TOKEN_PLUS, $char);
+            return $this->token(TokenType::TOKEN_PLUS, $char);
         }
         if ('-' === $char)
         {
-            return new Token(TokenType::TOKEN_MINUS, $char);
+            return $this->token(TokenType::TOKEN_MINUS, $char);
         }
         if ('*' === $char)
         {
-            return new Token(TokenType::TOKEN_MUL, $char);
+            return $this->token(TokenType::TOKEN_MUL, $char);
         }
         if ('/' === $char)
         {
-            return new Token(TokenType::TOKEN_DIV, $char);
+            return $this->token(TokenType::TOKEN_DIV, $char);
         }
         if ('(' === $char)
         {
-            return new Token(TokenType::TOKEN_LPARENS, $char);
+            return $this->token(TokenType::TOKEN_LPARENS, $char);
         }
         if (')' === $char)
         {
-            return new Token(TokenType::TOKEN_RPARENS, $char);
+            return $this->token(TokenType::TOKEN_RPARENS, $char);
         }
         if ('.' === $char)
         {
-            return new Token(TokenType::TOKEN_DOT, $char);
+            return $this->token(TokenType::TOKEN_DOT, $char);
         }
         if (';' === $char)
         {
-            return new Token(TokenType::TOKEN_SEMI, $char);
+            return $this->token(TokenType::TOKEN_SEMI, $char);
         }
         if (':' === $char)
         {
             if ('=' === $this->peek_char())
             {
                 $char .= $this->eat_char();
-                return new Token(TokenType::TOKEN_ASSIGN, $char);
+                return $this->token(TokenType::TOKEN_ASSIGN, $char);
             }
             else
             {
-                return new Token(TokenType::TOKEN_COLON, $char);
+                return $this->token(TokenType::TOKEN_COLON, $char);
             }
         }
         if (',' === $char)
         {
-            return new Token(TokenType::TOKEN_COMMA, $char);
+            return $this->token(TokenType::TOKEN_COMMA, $char);
         }
 
-        throw new ParseError("Unknown token: {$char}");
+        unknown_token($char, $this->line, $this->col);
     }
 
 
@@ -168,6 +169,7 @@ final class Lexer
     {
         if ($this->pos < $this->len)
         {
+            ++$this->col;
             return $this->input[$this->pos++];
         }
         return '';
@@ -181,7 +183,17 @@ final class Lexer
         $result = '';
         while ($this->pos < $this->len && $predicate($this->input[$this->pos]))
         {
-            $result .= $this->input[$this->pos++];
+            $char = $this->input[$this->pos++];
+            $result .= $char;
+            if ("\n" === $char)
+            {
+                ++$this->line;
+                $this->col = 1;
+            }
+            else
+            {
+                ++$this->col;
+            }
         }
         return $result;
     }
@@ -189,11 +201,15 @@ final class Lexer
 
     private function eat_pattern(string $pattern): string
     {
+        \assert(false === \strpos($pattern, "\n"));
+
         if ($this->pos < $this->len
             && \preg_match($pattern, $this->input, $matches, 0, $this->pos))
         {
             $result = $matches[0];
-            $this->pos += \strlen($result);
+            $len = \strlen($result);
+            $this->pos += $len;
+            $this->col += $len;
         }
         else
         {
@@ -206,15 +222,30 @@ final class Lexer
     private function eat_whitespace(): void
     {
         $comment = false;
+        $comment_line = $this->line;
+        $comment_col = $this->col;
+
         while ($this->pos < $this->len)
         {
             $char = $this->input[$this->pos];
             if ($comment || \ctype_space($char) || '{' === $char)
             {
                 ++$this->pos;
+                if ("\n" === $char)
+                {
+                    ++$this->line;
+                    $this->col = 1;
+                }
+                else
+                {
+                    ++$this->col;
+                }
+
                 if ('{' === $char)
                 {
                     $comment = true;
+                    $comment_line = $this->line;
+                    $comment_col = $this->col;
                 }
                 elseif ('}' === $char)
                 {
@@ -228,8 +259,18 @@ final class Lexer
         }
         if ($comment)
         {
-            throw new ParseError('Unclosed comment');
+            unclosed_comment($comment_line, $comment_col);
         }
+    }
+
+
+    /**
+     * @param TokenType::TOKEN_* $type;
+     * @param mixed $value;
+     */
+    private function token(int $type, $value): Token
+    {
+        return new Token($type, $value, $this->line, $this->col);
     }
 }
 
@@ -304,15 +345,19 @@ final class Token
     private int $type;
     /** @var mixed */
     private $value;
+    private int $line;
+    private int $col;
 
     /**
      * @param TokenType::TOKEN_* $type
      * @param mixed $value
      */
-    public function __construct(int $type, $value=null)
+    public function __construct(int $type, $value, int $line, int $col)
     {
         $this->type = $type;
         $this->value = $value;
+        $this->line = $line;
+        $this->col = $col;
     }
 
     /**
@@ -329,6 +374,18 @@ final class Token
     public function value()
     {
         return $this->value;
+    }
+
+
+    public function line(): int
+    {
+        return $this->line;
+    }
+
+
+    public function col(): int
+    {
+        return $this->col;
     }
 
 

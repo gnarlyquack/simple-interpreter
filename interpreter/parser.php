@@ -96,7 +96,7 @@ final class VariableDeclaration extends Declaration
 
     public function __toString(): string
     {
-        return "{$this->variable->identifier()}: {$this->type->name()}";
+        return "{$this->variable->name()}: {$this->type->name()}";
     }
 }
 
@@ -158,6 +158,11 @@ final class Type
     public function name(): string
     {
         return $this->token->value();
+    }
+
+    public function token(): Token
+    {
+        return $this->token;
     }
 }
 
@@ -324,18 +329,24 @@ final class Number extends Expression
 
 final class Variable extends Expression
 {
-    private Token $identifier;
+    private Token $variable;
 
-    public function __construct(Token $identifier)
+    public function __construct(Token $variable)
     {
-        \assert(TokenType::TOKEN_ID === $identifier->type());
-        $this->identifier = $identifier;
+        \assert(TokenType::TOKEN_ID === $variable->type());
+        $this->variable = $variable;
     }
 
 
-    public function identifier(): string
+    public function name(): string
     {
-        return $this->identifier->value();
+        return $this->variable->value();
+    }
+
+
+    public function token(): Token
+    {
+        return $this->variable;
     }
 }
 
@@ -562,7 +573,7 @@ function parse_factor(Lexer $lexer): Expression
     if (!$token)
     {
         $token = $lexer->eat_token();
-        throw new ParseError("Invalid term: {$token}");
+        unexpected_token($token);
     }
 
     $type = $token->type();
