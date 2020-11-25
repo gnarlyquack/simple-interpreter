@@ -37,6 +37,10 @@ function interpret_statement(Statement $statement, array &$state): void
         $state[$identifier] = $value;
     }
 
+    elseif ($statement instanceof ProcedureCall)
+    {
+    }
+
     else
     {
         $syntax = \get_class($statement);

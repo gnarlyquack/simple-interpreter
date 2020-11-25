@@ -270,3 +270,57 @@ CODE;
     $state = [];
     run_code($code, $state);
 }
+
+
+function test_procedure_call()
+{
+    $code = <<<'CODE'
+program Main;
+procedure Alpha(a : integer; b : integer);
+var x : integer;
+begin
+   x := (a + b ) * 2;
+end;
+begin { Main }
+   Alpha(3 + 5, 7);
+end.  { Main }
+CODE;
+    $actual = [];
+    run_code($code, $actual);
+
+    $expected = [];
+    assert_identical($expected, $actual);
+}
+
+
+function test_argument_mismatch()
+{
+    $tests = [
+        ['alpha();', "Procedure 'alpha' called with 0 arguments but takes 2"],
+        ['alpha(1);', "Procedure 'alpha' called with 1 arguments but takes 2"],
+        ['alpha(1, 2, 3);', "Procedure 'alpha' called with 3 arguments but takes 2"],
+    ];
+    $template = <<<'CODE'
+program Main;
+procedure Alpha(a : integer; b : integer);
+var x : integer;
+begin
+   x := (a + b ) * 2;
+end;
+begin { Main }
+    %s
+end.  { Main }
+CODE;
+    foreach ($tests as [$test, $expected])
+    {
+        $code = \sprintf($template, $test);
+        $actual = assert_throws(
+            SemanticError::class,
+            function() use ($code) {
+                $actual = [];
+                run_code($code, $actual);
+            }
+        );
+        assert_identical($expected, $actual->getMessage());
+    }
+}

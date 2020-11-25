@@ -93,6 +93,32 @@ function duplicate_identifier(Token $token)
 
 
 /**
+ * @return never
+ */
+function invalid_procedure(Token $token)
+{
+    throw new SemanticError(
+        "Identifier is not a procedure: {$token}",
+        $token->line(),
+        $token->col()
+    );
+}
+
+
+/**
+ * @return never
+ */
+function argument_mismatch(Token $token, int $nargs, int $nparams)
+{
+    throw new SemanticError(
+        "Procedure '{$token->value()}' called with {$nargs} arguments but takes {$nparams}",
+        $token->line(),
+        $token->col()
+    );
+}
+
+
+/**
  * @param string[] $argv
  */
 function main(int $argc, array $argv): void

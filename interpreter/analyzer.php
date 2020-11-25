@@ -3,10 +3,6 @@
 namespace interpreter;
 
 
-class NameError extends \Exception {}
-
-
-
 abstract class Symbol
 {
     abstract public function __toString(): string;
@@ -74,6 +70,15 @@ final class ProcedureSymbol extends Symbol
     {
         $this->name = $name;
         $this->parameters = $parameters;
+    }
+
+
+    /**
+     * @return VariableDeclaration[]
+     */
+    public function parameters(): array
+    {
+        return $this->parameters;
     }
 
 
@@ -205,6 +210,33 @@ function check_statement(Statement $statement, SymbolTable $symbols): void
         check_expression($statement->expression(), $symbols);
     }
 
+    elseif ($statement instanceof ProcedureCall)
+    {
+        $name = $statement->name();
+        $procedure = check_variable($name, $symbols);
+        if ($procedure instanceof ProcedureSymbol)
+        {
+            $arguments = $statement->arguments();
+            if(\count($arguments) !== \count($procedure->parameters()))
+            {
+                argument_mismatch(
+                    $name->token(),
+                    \count($arguments),
+                    \count($procedure->parameters())
+                );
+            }
+
+            foreach ($arguments as $argument)
+            {
+                check_expression($argument, $symbols);
+            }
+        }
+        else
+        {
+            invalid_procedure($name->token());
+        }
+    }
+
     else
     {
         $type = \get_class($statement);
@@ -277,7 +309,7 @@ function check_expression(Expression $expression, SymbolTable $symbols): void
 }
 
 
-function check_variable(Variable $variable, SymbolTable $symbols): void
+function check_variable(Variable $variable, SymbolTable $symbols): Symbol
 {
-    $symbols->lookup($variable->token());
+    return $symbols->lookup($variable->token());
 }

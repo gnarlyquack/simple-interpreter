@@ -216,6 +216,38 @@ final class Assignment extends Statement
 }
 
 
+final class ProcedureCall extends Statement
+{
+    private Variable $name;
+    /** @var Expression[] */
+    private array $arguments;
+
+    /**
+     * @param Expression[] $arguments
+     */
+    public function __construct(Variable $name, array $arguments)
+    {
+        $this->name = $name;
+        $this->arguments = $arguments;
+    }
+
+
+    public function name(): Variable
+    {
+        return $this->name;
+    }
+
+
+    /**
+     * @return Expression[]
+     */
+    public function arguments(): array
+    {
+        return $this->arguments;
+    }
+}
+
+
 abstract class Expression extends Ast {}
 
 
@@ -510,7 +542,17 @@ function parse_statements(Lexer $lexer): array
         }
         elseif (TokenType::TOKEN_ID === $token->type())
         {
-            $statements[] = parse_assignment($lexer);
+            $variable = parse_variable($lexer);
+            $token = $lexer->eat_token(TokenType::TOKEN_ASSIGN,
+                                       TokenType::TOKEN_LPARENS);
+            if (TokenType::TOKEN_ASSIGN === $token->type())
+            {
+                $statements[] = parse_assignment($variable, $lexer);
+            }
+            else
+            {
+                $statements[] = parse_procedure_call($variable, $lexer);
+            }
         }
         else
         {
@@ -521,13 +563,33 @@ function parse_statements(Lexer $lexer): array
 }
 
 
-function parse_assignment(Lexer $lexer): Assignment
+function parse_assignment(Variable $name, Lexer $lexer): Assignment
 {
-    $variable = parse_variable($lexer);
-    $lexer->eat_token(TokenType::TOKEN_ASSIGN);
     $expression = parse_expression($lexer);
+    return new Assignment($name, $expression);
+}
 
-    return new Assignment($variable, $expression);
+
+function parse_procedure_call(Variable $name, Lexer $lexer): ProcedureCall
+{
+    $arguments = [];
+    if (!$lexer->peek_token(TokenType::TOKEN_RPARENS))
+    {
+        while (true)
+        {
+            $arguments[] = parse_expression($lexer);
+            if ($lexer->peek_token(TokenType::TOKEN_COMMA))
+            {
+                $lexer->eat_token();
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
+    $lexer->eat_token(TokenType::TOKEN_RPARENS);
+    return new ProcedureCall($name, $arguments);
 }
 
 
