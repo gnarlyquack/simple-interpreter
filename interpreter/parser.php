@@ -368,16 +368,14 @@ function parse_block(Lexer $lexer): Block
 function parse_declarations(Lexer $lexer): array
 {
     $declarations = [];
-    if ($lexer->peek_token(TokenType::TOKEN_VAR))
+    while ($lexer->peek_token(TokenType::TOKEN_VAR))
     {
         $lexer->eat_token();
-        do
+        foreach (parse_variable_declaration($lexer) as $declaration)
         {
-            $declarations = \array_merge(
-                $declarations,
-                parse_variable_declaration($lexer));
-            $lexer->eat_token(TokenType::TOKEN_SEMI);
-        } while ($lexer->peek_token(TokenType::TOKEN_ID));
+            $declarations[] = $declaration;
+        }
+        $lexer->eat_token(TokenType::TOKEN_SEMI);
     }
 
     while($lexer->peek_token(TokenType::TOKEN_PROCEDURE))
@@ -452,8 +450,10 @@ function parse_parameters(Lexer $lexer): array
     $parameters = [];
     while (true)
     {
-        $parameters = \array_merge(
-            $parameters, parse_variable_declaration($lexer));
+        foreach (parse_variable_declaration($lexer) as $parameter)
+        {
+            $parameters[] = $parameter;
+        }
         if ($lexer->peek_token(TokenType::TOKEN_SEMI))
         {
             $lexer->eat_token();

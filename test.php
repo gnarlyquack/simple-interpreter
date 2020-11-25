@@ -78,18 +78,15 @@ function test_program()
 {
     $code = <<<'CODE'
 PROGRAM TestProgram;
-VAR
-    number      : INTEGER;
-    a, b, c, x  : INTEGER;
-    y           : REAL;
+VAR number      : INTEGER;
+VAR a, b, c, x  : INTEGER;
+VAR y           : REAL;
 
 PROCEDURE P1;
-VAR
-   a : REAL;
-   k : INTEGER;
+VAR a : REAL;
+VAR k : INTEGER;
    PROCEDURE P2;
-   VAR
-      a, z : INTEGER;
+   VAR a, z : INTEGER;
    BEGIN {P2}
       z := 777;
    END;  {P2}
@@ -128,10 +125,9 @@ function test_case_sensitivity()
 {
     $code = <<<'CODE'
 PROGRAM TestCaseSensitivity;
-VAR
-    number      : INTEGER;
-    a, b, c, x  : INTEGER;
-    _half_x     : INTEGER;
+VAR number      : INTEGER;
+VAR a, b, c, x  : INTEGER;
+VAR _half_x     : INTEGER;
 BEGIN
 
     BEGIN
@@ -212,9 +208,8 @@ function test_redefined_variable()
         function() {
             $code = <<<'CODE'
 program SymTab6;
-var
-    x, y : integer;
-    y    : real;
+    var x, y : integer;
+    var y    : real;
 begin
    x := x + y;
 end.
@@ -232,7 +227,7 @@ function test_scope()
     $code = <<<'CODE'
 program Main;
    var b, x, y : real;
-   z : integer;
+   var z : integer;
 
    procedure AlphaA(a : integer);
       var b : integer;
