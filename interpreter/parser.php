@@ -218,6 +218,7 @@ final class Assignment extends Statement
 
 final class ProcedureCall extends Statement
 {
+    public ProcedureSymbol $procedure;
     private Variable $name;
     /** @var Expression[] */
     private array $arguments;

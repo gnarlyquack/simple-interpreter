@@ -35,11 +35,23 @@ function interpret_statement(Statement $statement, Memory $state): void
     {
         $identifier = $statement->variable()->name();
         $value = interpret_expression($statement->expression(), $state);
-        $state->set($identifier, $value);
+        $state->peek_frame()->set($identifier, $value);
     }
 
     elseif ($statement instanceof ProcedureCall)
     {
+        $frame = new Frame;
+        $arguments = $statement->arguments();
+        $procedure = $statement->procedure;
+        foreach ($procedure->parameters() as $i => $parameter)
+        {
+            $name = $parameter->variable()->name();
+            $argument = interpret_expression($arguments[$i], $state);
+            $frame->set($name, $argument);
+        }
+        $state->push_frame($frame);
+        interpret_statement($procedure->body(), $state);
+        $state->pop_frame();
     }
 
     else
@@ -125,7 +137,7 @@ function interpret_expression(Expression $expression, Memory $state)
     elseif ($expression instanceof Variable)
     {
         $variable = $expression->name();
-        return $state->lookup($variable);
+        return $state->peek_frame()->lookup($variable);
     }
 
     else
@@ -143,23 +155,50 @@ function interpret_expression(Expression $expression, Memory $state)
 
 final class Memory
 {
-    private int $frame = 0;
-    /** @var array<string, mixed>[] */
+    /** @var Frame[] */
     private array $frames = [];
 
 
     public function __construct()
     {
-        $this->frames[] = [];
+        $this->frames[] = new Frame;
     }
+
+    public function push_frame(Frame $frame): void
+    {
+        $this->frames[] = $frame;
+        echo "push frame ", \count($this->frames), "\n";
+    }
+
+
+    public function pop_frame(): Frame
+    {
+        \assert(\count($this->frames) > 0);
+        echo "pop frame ", \count($this->frames), "\n";
+        return \array_pop($this->frames);
+    }
+
+
+    public function peek_frame(): Frame
+    {
+        \assert(\count($this->frames) > 0);
+        return \end($this->frames);
+    }
+}
+
+
+final class Frame
+{
+    /** @var array<string, mixed> */
+    private array $variables = [];
 
     /**
      * @param mixed $value
      */
     public function set(string $name, $value): void
     {
-        // echo "setting {$name}: ", \var_export($value, true), "\n";
-        $this->frames[$this->frame][$name] = $value;
+        echo "setting {$name}: ", \var_export($value, true), "\n";
+        $this->variables[$name] = $value;
     }
 
     /**
@@ -167,34 +206,14 @@ final class Memory
      */
     public function lookup(string $name)
     {
-        $value = $this->frames[$this->frame][$name];
-        // echo "reading {$name}: ", \var_export($value, true), "\n";
+        $value = $this->variables[$name];
+        echo "reading {$name}: ", \var_export($value, true), "\n";
         return $value;
     }
 
-
-    public function push_frame(): void
+    /** @return array<string, mixed> */
+    public function variables(): array
     {
-        $this->frames[] = [];
-        ++$this->frame;
-        // echo "push frame {$this->frame}\n";
+        return $this->variables;
     }
-
-
-    public function pop_frame(): void
-    {
-        // echo "pop frame {$this->frame}\n";
-        \array_pop($this->frames);
-        --$this->frame;
-    }
-
-
-    /**
-     * @return array<string, mixed>
-     */
-    public function peek_frame(): array
-    {
-        return $this->frames[$this->frame];
-    }
-
 }

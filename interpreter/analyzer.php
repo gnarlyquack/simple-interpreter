@@ -62,14 +62,16 @@ final class ProcedureSymbol extends Symbol
     private string $name;
     /** @var VariableDeclaration[] */
     private array $parameters;
+    private Block $body;
 
     /**
      * @param VariableDeclaration[] $parameters
      */
-    public function __construct(string $name, array $parameters)
+    public function __construct(string $name, array $parameters, Block $body)
     {
         $this->name = $name;
         $this->parameters = $parameters;
+        $this->body = $body;
     }
 
 
@@ -79,6 +81,12 @@ final class ProcedureSymbol extends Symbol
     public function parameters(): array
     {
         return $this->parameters;
+    }
+
+
+    public function body(): Block
+    {
+        return $this->body;
     }
 
 
@@ -124,7 +132,7 @@ final class SymbolTable
     /**
      * @param VariableDeclaration[] $parameters
      */
-    public function add_procedure(Variable $variable, array $parameters): void
+    public function add_procedure(Variable $variable, array $parameters, Block $body): void
     {
         $scope = $this->scope;
         $name = $variable->name();
@@ -133,7 +141,7 @@ final class SymbolTable
             duplicate_identifier($variable->token());
         }
 
-        $symbol = new ProcedureSymbol($name, $parameters);
+        $symbol = new ProcedureSymbol($name, $parameters, $body);
         // echo "Scope {$this->scope}: adding symbol {$symbol}\n";
         $this->scopes[$scope][$name] = $symbol;
     }
@@ -230,6 +238,8 @@ function check_statement(Statement $statement, SymbolTable $symbols): void
             {
                 check_expression($argument, $symbols);
             }
+
+            $statement->procedure = $procedure;
         }
         else
         {
@@ -258,7 +268,7 @@ function check_declaration(Declaration $declaration, SymbolTable $symbols): void
     {
         $name = $declaration->name();
         $parameters = $declaration->parameters();
-        $symbols->add_procedure($name, $parameters);
+        $symbols->add_procedure($name, $parameters, $declaration->body());
 
         $symbols->push_scope();
         foreach ($parameters as $parameter)

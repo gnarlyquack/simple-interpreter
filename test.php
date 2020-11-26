@@ -50,7 +50,7 @@ BEGIN
 END.
 CODE;
 
-        $actual = run_code($code)->peek_frame();
+        $actual = run_code($code)->peek_frame()->variables();
         $c->assert_identical(['a' => $expected], $actual);
     }
 }
@@ -76,7 +76,7 @@ BEGIN
     a := {$statement};
 END.
 CODE;
-                run_code($code)->peek_frame();
+                run_code($code)->peek_frame()->variables();
             },
             null,
             $result
@@ -126,7 +126,7 @@ CODE;
         'y' => 20 / 7 + 3.14,
     ];
 
-    $actual = run_code($code)->peek_frame();
+    $actual = run_code($code)->peek_frame()->variables();
     assert_identical($expected, $actual);
 }
 
@@ -161,7 +161,7 @@ CODE;
         '_half_x' => 5,
     ];
 
-    $actual = run_code($code)->peek_frame();
+    $actual = run_code($code)->peek_frame()->variables();
     assert_identical($expected, $actual);
 }
 
@@ -179,8 +179,7 @@ BEGIN
    a := 2 + b;
 END.
 CODE;
-            $state = [];
-            run_code($code, $state);
+            run_code($code);
         }
     );
     assert_identical(
@@ -204,8 +203,7 @@ BEGIN
    a := b + 2;
 END.
 CODE;
-            $state = [];
-            run_code($code, $state);
+            run_code($code);
         }
     );
     assert_identical(
@@ -228,8 +226,7 @@ begin
    x := x + y;
 end.
 CODE;
-            $state = [];
-            run_code($code, $state);
+            run_code($code);
         }
     );
     assert_identical(
@@ -275,8 +272,7 @@ program Main;
 begin { Main }
 end.  { Main }
 CODE;
-    $state = [];
-    run_code($code, $state);
+    run_code($code);
 }
 
 
@@ -293,10 +289,10 @@ begin { Main }
    Alpha(3 + 5, 7);
 end.  { Main }
 CODE;
-    $actual = [];
-    run_code($code, $actual);
 
-    $expected = [];
+    $actual = run_code($code)->peek_frame()->variables();
+
+    $expected = ['x' => 30];
     assert_identical($expected, $actual);
 }
 
@@ -325,8 +321,7 @@ CODE;
         $actual = assert_throws(
             SemanticError::class,
             function() use ($code) {
-                $actual = [];
-                run_code($code, $actual);
+                run_code($code);
             }
         );
         assert_identical($expected, $actual->getMessage());
