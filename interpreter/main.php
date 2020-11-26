@@ -142,24 +142,17 @@ function main(int $argc, array $argv): void
         require 'lexer.php';
         require 'parser.php';
 
-        $state = array();
-        run_code($input, $state);
-
-        foreach ($state as $key => $value)
-        {
-            \printf("%s: %s\n", $key, \var_export($value, true));
-        }
+        run_code($input);
     }
 }
 
 
 /**
- * @param array<string, mixed> $state
  * @return mixed
  */
-function run_code(string $code, array &$state)
+function run_code(string $code)
 {
     $program = parse_program(new Lexer($code));
     check_program($program);
-    interpret($program, $state);
+    interpret($program);
 }

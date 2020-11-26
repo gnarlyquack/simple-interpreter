@@ -6,7 +6,22 @@ use function easytest\assert_throws;
 
 use interpreter\ParseError;
 use interpreter\SemanticError;
-use function interpreter\run_code;
+use interpreter\Lexer;
+use interpreter\Memory;
+use function interpreter\check_program;
+use function interpreter\interpret_program;
+use function interpreter\parse_program;
+
+
+function run_code(string $code): Memory
+{
+    $program = parse_program(new Lexer($code));
+    check_program($program);
+
+    $state = new Memory;
+    interpret_program($program, $state);
+    return $state;
+}
 
 
 function test_arithmetic_expressions(Context $c)
@@ -34,10 +49,9 @@ BEGIN
     a := {$expression}
 END.
 CODE;
-        $actual = [];
-        run_code($code, $actual);
 
-        $c->assert_identical($expected, $actual['a']);
+        $actual = run_code($code)->peek_frame();
+        $c->assert_identical(['a' => $expected], $actual);
     }
 }
 
@@ -51,10 +65,9 @@ function test_invalid_syntax(Context $c)
 
     foreach ($statements as [$statement, $error])
     {
-        $state = [];
         $c->assert_throws(
             ParseError::class,
-            function() use ($statement, &$state) {
+            function() use ($statement) {
                 $code = <<<CODE
 PROGRAM Test;
 VAR
@@ -63,13 +76,12 @@ BEGIN
     a := {$statement};
 END.
 CODE;
-                run_code($code, $state);
+                run_code($code)->peek_frame();
             },
             null,
             $result
         );
         $c->assert_identical($error, $result->getMessage());
-        $c->assert_identical([], $state, 'resulting state');
     }
 }
 
@@ -114,9 +126,7 @@ CODE;
         'y' => 20 / 7 + 3.14,
     ];
 
-    $actual = [];
-    run_code($code, $actual);
-
+    $actual = run_code($code)->peek_frame();
     assert_identical($expected, $actual);
 }
 
@@ -151,9 +161,7 @@ CODE;
         '_half_x' => 5,
     ];
 
-    $actual = [];
-    run_code($code, $actual);
-
+    $actual = run_code($code)->peek_frame();
     assert_identical($expected, $actual);
 }
 
