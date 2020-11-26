@@ -63,15 +63,17 @@ final class ProcedureSymbol extends Symbol
     /** @var VariableDeclaration[] */
     private array $parameters;
     private Block $body;
+    private int $scope;
 
     /**
      * @param VariableDeclaration[] $parameters
      */
-    public function __construct(string $name, array $parameters, Block $body)
+    public function __construct(string $name, array $parameters, Block $body, int $scope)
     {
         $this->name = $name;
         $this->parameters = $parameters;
         $this->body = $body;
+        $this->scope = $scope;
     }
 
 
@@ -87,6 +89,12 @@ final class ProcedureSymbol extends Symbol
     public function body(): Block
     {
         return $this->body;
+    }
+
+
+    public function scope(): int
+    {
+        return $this->scope;
     }
 
 
@@ -141,7 +149,7 @@ final class SymbolTable
             duplicate_identifier($variable->token());
         }
 
-        $symbol = new ProcedureSymbol($name, $parameters, $body);
+        $symbol = new ProcedureSymbol($name, $parameters, $body, $scope);
         // echo "Scope {$this->scope}: adding symbol {$symbol}\n";
         $this->scopes[$scope][$name] = $symbol;
     }

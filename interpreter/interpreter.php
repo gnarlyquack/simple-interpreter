@@ -40,9 +40,10 @@ function interpret_statement(Statement $statement, Memory $state): void
 
     elseif ($statement instanceof ProcedureCall)
     {
-        $frame = new Frame;
+        $name = $statement->name()->name();
         $arguments = $statement->arguments();
         $procedure = $statement->procedure;
+        $frame = new Frame($name, $procedure->scope() + 1);
         foreach ($procedure->parameters() as $i => $parameter)
         {
             $name = $parameter->variable()->name();
@@ -161,21 +162,22 @@ final class Memory
 
     public function __construct()
     {
-        $this->frames[] = new Frame;
+        $this->frames[] = new Frame('GLOBAL', 0);
     }
 
     public function push_frame(Frame $frame): void
     {
         $this->frames[] = $frame;
-        echo "push frame ", \count($this->frames), "\n";
+        // echo "push frame {$frame->name()} (scope {$frame->scope()})\n";
     }
 
 
     public function pop_frame(): Frame
     {
         \assert(\count($this->frames) > 0);
-        echo "pop frame ", \count($this->frames), "\n";
-        return \array_pop($this->frames);
+        $frame = \array_pop($this->frames);
+        // echo "pop frame {$frame->name()}\n";
+        return $frame;
     }
 
 
@@ -189,15 +191,24 @@ final class Memory
 
 final class Frame
 {
+    private string $name;
+    private int $scope;
     /** @var array<string, mixed> */
     private array $variables = [];
+
+
+    public function __construct(string $name, int $scope)
+    {
+        $this->name = $name;
+        $this->scope = $scope;
+    }
 
     /**
      * @param mixed $value
      */
     public function set(string $name, $value): void
     {
-        echo "setting {$name}: ", \var_export($value, true), "\n";
+        // echo "setting {$name}: ", \var_export($value, true), "\n";
         $this->variables[$name] = $value;
     }
 
@@ -207,8 +218,20 @@ final class Frame
     public function lookup(string $name)
     {
         $value = $this->variables[$name];
-        echo "reading {$name}: ", \var_export($value, true), "\n";
+        // echo "reading {$name}: ", \var_export($value, true), "\n";
         return $value;
+    }
+
+
+    public function name(): string
+    {
+        return $this->name;
+    }
+
+
+    public function scope(): int
+    {
+        return $this->scope;
     }
 
     /** @return array<string, mixed> */
